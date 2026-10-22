@@ -41,9 +41,9 @@
           </template>
           <!-- 这放聊天框或建议列表 -->
           <div class="chat-area">
-            <div class="ai-message">
-              <p><strong>AI 思考中：</strong>正在检索《2025 PCI指南》...</p>
-              <p><strong>AI 建议：</strong>患者存在牙龈出血症状，建议评估缩短 DAPT 疗程，考虑转换为单药抗血小板治疗。</p>
+            <div v-for="(msg, index) in chatMessages" :key="index" :class="['message', msg.role]">
+              <strong>{{ msg.role === 'ai' ? 'AI 助手' : '医生' }}：</strong>
+              <span>{{ msg.text }}</span>
             </div>
           </div>
           <!-- 底部输入框 -->
@@ -89,14 +89,26 @@ const currentMeds = ref('阿司匹林 + 氯吡格雷')
 const symptoms = ref('牙龈出血')
 const handleSend = () => {
   if (inputText.value.trim() === '') {
-    alert('请先输入问题！');
-    return;
+    alert('请先输入问题！')
+    return
   }
   
-  console.log("医生准备发送问题：", inputText.value);
-  alert('正在向 AI 发送：\n' + inputText.value);
-  inputText.value = '';
+  // 医生的话存进列表
+  chatMessages.value.push({ role: 'user', text: inputText.value })
+  
+  // 模拟 AI 的回复（以后这里换成发给后端）
+  setTimeout(() => {
+    chatMessages.value.push({ role: 'ai', text: '收到您的提问：' + inputText.value + '。AI 正在思考中...' })
+  }, 500) // 延迟0.5秒，假装 AI 在想
+  
+  // 清空输入框
+  inputText.value = ''
 }
+
+// 定义聊天记录列表，初始有一个 AI 的欢迎语
+const chatMessages = ref([
+  { role: 'ai', text: '您好，我是 PCI 术后用药助手，请问有什么可以帮您？' }
+])
 </script>
 
 <style scoped>
@@ -162,3 +174,11 @@ const handleSend = () => {
   display: flex;
 }
 </style>
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 6px;
+}
+.user { background-color: #e3f2fd; text-align: right; }
+.ai { background-color: #fff; }
