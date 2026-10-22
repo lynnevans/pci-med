@@ -16,10 +16,20 @@
               <span>患者档案</span>
             </div>
           </template>
-          <p>姓名：李某某</p>
-          <p>术后时长：7 个月</p>
-          <p>当前用药：阿司匹林 + 氯吡格雷</p>
-          <p>近期症状：牙龈出血</p>
+           <el-form label-width="80px">
+            <el-form-item label="姓名">
+              <el-input v-model="patientName"></el-input>
+            </el-form-item>
+            <el-form-item label="术后时长">
+              <el-input-number v-model="postPciMonths"></el-input-number>
+            </el-form-item>
+            <el-form-item label="当前用药">
+              <el-input v-model="currentMeds" type="textarea"></el-input>
+            </el-form-item>
+            <el-form-item label="近期症状">
+              <el-input v-model="symptoms" type="textarea"></el-input>
+            </el-form-item>
+          </el-form>
         </el-card>
       </aside>
 
@@ -39,7 +49,7 @@
           <!-- 底部输入框 -->
           <div class="input-area">
             <el-input v-model="inputText" placeholder="请输入患者主诉或问题..." />
-            <el-button type="primary" style="margin-left: 10px;">发送</el-button>
+            <el-button type="primary" style="margin-left: 10px;"@click="handleSend">发送</el-button>
           </div>
         </el-card>
       </section>
@@ -66,7 +76,27 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+// 顶部医生名字
+const doctorName = ref('王医生')
+
+// 中间
 const inputText = ref('')
+
+// 左侧患者档案
+const patientName = ref('李某某')
+const postPciMonths = ref(7)
+const currentMeds = ref('阿司匹林 + 氯吡格雷')
+const symptoms = ref('牙龈出血')
+const handleSend = () => {
+  if (inputText.value.trim() === '') {
+    alert('请先输入问题！');
+    return;
+  }
+  
+  console.log("医生准备发送问题：", inputText.value);
+  alert('正在向 AI 发送：\n' + inputText.value);
+  inputText.value = '';
+}
 </script>
 
 <style scoped>
