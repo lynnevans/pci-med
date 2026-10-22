@@ -179,3 +179,21 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# 指南与本地数据
+vector_db/
+chunks/
+models/
+一级指南/
+二级指南/
+
+# 包
+node_modules/
+dist/
+
+# 环境配置文件
+.env
+
+# 系统文件
+.DS_Store
+Thumbs.db
