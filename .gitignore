@@ -185,6 +185,8 @@ vector_db/
 chunks/
 models/
 test/
+backend/text/
+backend/chunks/
 一级指南/
 二级指南/
 
