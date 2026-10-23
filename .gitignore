@@ -183,6 +183,7 @@ cython_debug/
 # 指南与本地数据
 vector_db/
 chunks/
+text/
 models/
 一级指南/
 二级指南/
