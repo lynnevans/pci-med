@@ -184,6 +184,7 @@ cython_debug/
 vector_db/
 chunks/
 models/
+test/
 一级指南/
 二级指南/
 
