@@ -21,23 +21,23 @@ def main():
         return
 
     print("加载模型和向量库...")
-    model = BGEM3FlagModel(str(MODEL_DIR), use_fp16=False, devices="cpu")
-    client = chromadb.PersistentClient(path=str(DB_DIR))
-    col = client.get_collection("pci_med_guidelines")
+    model = BGEM3FlagModel(str(MODEL_DIR), use_fp16=False, devices="cpu")  
+    client = chromadb.PersistentClient(path=str(DB_DIR)) 
+    col = client.get_collection("pci_med_guidelines") 
     print(f"向量库共 {col.count()} 条记录\n")
 
     for q in QUERIES:
         print("=" * 60)
         print(f"问题：{q}\n")
-        qvec = model.encode([q], batch_size=1, max_length=1024)["dense_vecs"]
-        res = col.query(
+        qvec = model.encode([q], batch_size=1, max_length=1024)["dense_vecs"]  #问题encode
+        res = col.query(  #比对指纹库
             query_embeddings=qvec.tolist(),
             n_results=3,
             include=["documents", "metadatas", "distances"],
         )
         for i in range(len(res["ids"][0])):
             meta = res["metadatas"][0][i]
-            dist = res["distances"][0][i]
+            dist = res["distances"][0][i]   #距离小于0.4，完全匹配
             doc = res["documents"][0][i].replace("\n", " ")
             print(f"[Top{i+1}] 来源: {meta['source_file']} | 距离: {dist:.4f}")
             print(f"  {doc[:180]}...")
