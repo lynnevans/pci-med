@@ -83,7 +83,7 @@ def build_prompt(question, docs, metas):
         parts.append(f"[片段{i}｜Tier{tier}｜{src}]\n{d}")
     context = "\n\n".join(parts)
     prompt = (f"【指南片段】\n{context}\n\n【医生提问】\n{question}\n\n"
-              f"请给出用药建议，标注来源片段编号；多来源不一致时说明采信哪一条及理由。")
+              f"请摘录与上述问题直接相关的原文，逐句标注来源片段编号，禁止改写或补充。")
     return prompt
 
 
