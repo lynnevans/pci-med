@@ -29,8 +29,8 @@ except ImportError:
     print("缺少依赖，请先运行： pip install pymupdf")
     sys.exit(1)
 
-# ===== 可调参数 =====
-GUIDE_DIRS = ["一级指南", "二级指南"]  # 相对脚本所在目录的指南子文件夹
+# 可调参数
+GUIDE_DIRS = ["一级指南", "二级指南"]  
 CHUNK_CHARS = 500      # 每块目标字符数
 OVERLAP_CHARS = 100    # 相邻块重叠字符数
 MIN_TEXT_CHARS = 150   # 全文少于这个字符数 → 判定为疑似扫描件，需 OCR
