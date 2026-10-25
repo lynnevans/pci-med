@@ -1,4 +1,0 @@
-
-venv无法激活解决：
-Set-ExecutionPolicy Bypass -Scope Process
-.\venv\Scripts\Activate.ps1
