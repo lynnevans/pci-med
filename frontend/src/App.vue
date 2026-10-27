@@ -36,40 +36,51 @@ const historyFields = [
 
 // 【新增 examCards 替换原来的 examFields】
 const examCards = [
-  { name: '血常规', items: 'Hb / WBC / PLT', fields: [
-    { key: 'hb_low', label: '血红蛋白降低', type: 'bool' }, // 这个用开关
-    { key: 'plt_status', label: '血小板', type: 'status', options: ['正常', '降低'] }, // 小胶囊
-  ]},
-  { name: '肝功能', items: 'ALT / AST', fields: [
-    { key: 'alt_ast_status', label: 'ALT/AST', type: 'status', options: ['正常', '轻度升高', '重度升高'] },
-  ]},
-  { name: '肾功能', items: '肌酐 / eGFR', fields: [
-    { key: 'scr', label: '血肌酐 Scr', type: 'number', unit: 'μmol/L' }, // 数字框
-    { key: 'egfr', label: 'eGFR', type: 'number', unit: 'ml/min' },
-  ]},
-  { name: '超声心动图', items: 'EF / 室壁运动', fields: [
-    { key: 'lvef', label: 'LVEF', type: 'number', unit: '%' },
-  ]},
+  {
+    name: '血常规', items: 'Hb / WBC / PLT', fields: [
+      { key: 'hb_low', label: '血红蛋白降低', type: 'bool' }, // 这个用开关
+      { key: 'plt_status', label: '血小板', type: 'status', options: ['正常', '降低'] }, // 小胶囊
+    ]
+  },
+  {
+    name: '肝功能', items: 'ALT / AST', fields: [
+      { key: 'alt_ast_status', label: 'ALT/AST', type: 'status', options: ['正常', '轻度升高', '重度升高'] },
+    ]
+  },
+  {
+    name: '肾功能', items: '肌酐 / eGFR', fields: [
+      { key: 'scr', label: '血肌酐 Scr', type: 'number', unit: 'μmol/L' }, // 数字框
+      { key: 'egfr', label: 'eGFR', type: 'number', unit: 'ml/min' },
+    ]
+  },
+  {
+    name: '超声心动图', items: 'EF / 室壁运动', fields: [
+      { key: 'lvef', label: 'LVEF', type: 'number', unit: '%' },
+    ]
+  },
 ]
 
+// 用药加上剂量
 const medFields = [
-  { key: 'aspirin', label: '阿司匹林当前剂量' },
-  { key: 'clopidogrel', label: '氯吡格雷当前剂量' },
-  { key: 'ticagrelor', label: '替格瑞洛当前剂量' },
-  { key: 'noac', label: '口服抗凝药' },
-  { key: 'beta_blocker', label: 'β受体阻滞剂' },
-  { key: 'arni', label: 'ARNI/ACEI/ARB' },
-  { key: 'ppi', label: 'PPI类药物' },
-  { key: 'lipid', label: '降脂类药物' },
-  { key: 'glucose', label: '降糖类药物' },
+  { key: 'aspirin', label: '阿司匹林', unit: 'mg' },
+  { key: 'clopidogrel', label: '氯吡格雷', unit: 'mg' },
+  { key: 'ticagrelor', label: '替格瑞洛', unit: 'mg' },
+  { key: 'noac', label: '口服抗凝药', unit: 'mg' },
+  { key: 'beta_blocker', label: 'β受体阻滞剂', unit: 'mg' },
+  { key: 'arni', label: 'ARNI/ACEI/ARB', unit: 'mg' },
+  { key: 'ppi', label: 'PPI类药物', unit: 'mg' },
+  { key: 'lipid', label: '降脂类药物', unit: 'mg' },
+  { key: 'glucose', label: '降糖类药物', unit: 'mg' },
 ]
+
 
 // 【修改 symptomFields】
 const symptomFields = [
   { key: 'symptoms', label: '症状表现', multi: true, options: ['胸痛', '胸闷气短', '晕厥', '活动耐量下降'] },
   // 把出血征象里危险的选项加上 dangerOptions
-  { key: 'bleeding', label: '出血征象', multi: true, 
-    options: ['淤青', '牙龈出血', '呕血', '尿血', '黑便'], 
+  {
+    key: 'bleeding', label: '出血征象', multi: true,
+    options: ['淤青', '牙龈出血', '呕血', '尿血', '黑便'],
     dangerOptions: ['呕血', '尿血', '黑便'] // 这一项是为了变红
   },
   { key: 'self_stop_days', label: '自行停药天数', unit: '天', placeholder: '未停药请填 0' },
@@ -107,9 +118,16 @@ for (const c of examCards) {
   for (const f of c.fields) {
     if (f.type === 'bool') form[f.key] = false
     else if (f.type === 'status') form[f.key] = '正常'
-    else form[f.key] = ''
+    else form[f.key] = null
   }
 }
+
+// 初始化表单时，给每个药加一个“未使用”的状态
+for (const f of medFields) {
+  form[f.key] = '' // 剂量
+  form[`${f.key}_unused`] = false // 是否未使用
+}
+
 
 // ===== 提交逻辑 =====
 //必填项
@@ -128,9 +146,17 @@ function nextStep() {
 // 将输入框的字符串转为后端需要的格式（处理数字、布尔、多选）
 function buildPayload() {
   const p: Record<string, any> = {}
-  
+
   for (const key in form) {
-    let val = form[key].trim()
+    let val = form[key]
+     // 如果是多选数组，直接赋值给后端，跳过 trim 处理
+    if (Array.isArray(val)) {
+      if (val.length > 0) p[key] = val
+      continue
+    }
+
+    if (!val) continue
+    val = val.trim()
     if (!val) continue
 
     // 处理布尔值 (是/否)
@@ -148,10 +174,10 @@ function buildPayload() {
   if (p['diagnosis']) {
     const d = p['diagnosis']
     if (d.includes('心梗') || d.includes('心绞痛')) {
-       p['scenario'] = d.includes('ST段') || d.includes('不稳定') ? 'ACS' : 'CCS'
+      p['scenario'] = d.includes('ST段') || d.includes('不稳定') ? 'ACS' : 'CCS'
     }
   }
-  
+
   return p
 }
 
@@ -185,7 +211,9 @@ function reset() {
 <template>
   <div class="page">
     <header class="brand">
-      <div class="brand-icon"><el-icon :size="30"><FirstAidKit /></el-icon></div>
+      <div class="brand-icon"><el-icon :size="30">
+          <FirstAidKit />
+        </el-icon></div>
       <div class="brand-text">
         <h1>PCI 术后用药管理助手 (2.0版)</h1>
         <p>初版测试，所有字段文本输入</p>
@@ -211,20 +239,25 @@ function reset() {
             <template #label>
               <span v-if="f.required" class="req">*</span> {{ f.label }}
             </template>
+            <!-- ======= 新增：第4步（用药剂量单位） ======= -->
+            <div v-if="currentStep === 3" class="med-row-wrap">
+              <el-checkbox v-model="form[`${f.key}_unused`]" @change="form[f.key] = ''"
+                style="margin-right: 15px;">未使用此药</el-checkbox>
+              <el-input v-model="form[f.key]" :disabled="form[`${f.key}_unused`]"
+                :placeholder="form[`${f.key}_unused`] ? '已停用' : '请输入剂量'" style="width: 200px;">
+                <template v-if="f.unit" #append>{{ f.unit }}</template>
+              </el-input>
+            </div>
 
-            <div class="field-wrap">
-              <!-- 有 options 渲染胶囊按钮 -->
+            <!-- ======= 其他步骤保持原样（胶囊或输入框） ======= -->
+            <div v-else class="field-wrap">
               <div v-if="f.options" class="option-group">
-                <label v-for="op in f.options" :key="op" class="opt" 
-                :class="{ danger: f.dangerOptions && f.dangerOptions.includes(op) }">
-                  <input :type="f.multi ? 'checkbox' : 'radio'" 
-                  :name="f.key" :value="op" 
-                  v-model="form[f.key]" />
+                <label v-for="op in f.options" :key="op" class="opt"
+                  :class="{ danger: f.dangerOptions && f.dangerOptions.includes(op) }">
+                  <input :type="f.multi ? 'checkbox' : 'radio'" :name="f.key" :value="op" v-model="form[f.key]" />
                   <span>{{ op }}</span>
                 </label>
               </div>
-
-              <!-- 没有 options 渲染输入框 -->
               <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '请输入'" clearable>
                 <template v-if="f.unit" #append>{{ f.unit }}</template>
               </el-input>
@@ -244,10 +277,10 @@ function reset() {
             <div class="exam-body">
               <div v-for="f in c.fields" :key="f.key" class="exam-field">
                 <span class="exam-label">{{ f.label }}</span>
-                
+
                 <!-- 开关 -->
                 <el-switch v-if="f.type === 'bool'" v-model="form[f.key]" />
-                
+
                 <!-- 小胶囊 -->
                 <div v-else-if="f.type === 'status'" class="option-group">
                   <label v-for="op in f.options" :key="op" class="opt opt-sm">
@@ -255,7 +288,7 @@ function reset() {
                     <span>{{ op }}</span>
                   </label>
                 </div>
-                
+
                 <!-- 数字框 -->
                 <el-input-number v-else v-model="form[f.key]" :min="0" controls-position="right" class="ctrl-sm">
                   <template #suffix v-if="f.unit">{{ f.unit }}</template>
@@ -270,7 +303,9 @@ function reset() {
           <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
           <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="nextStep">下一步</el-button>
           <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
-            <el-icon class="btn-icon"><Document /></el-icon>提交分析
+            <el-icon class="btn-icon">
+              <Document />
+            </el-icon>提交分析
           </el-button>
         </div>
         <div class="spacer"></div>
@@ -291,10 +326,12 @@ function reset() {
         <div class="result-head">
           <h2>分析结果</h2>
         </div>
-        
+
         <div v-if="result.redlines?.length">
           <div v-for="r in result.redlines" :key="r.id" class="redline-item">
-            <strong><el-icon><WarningFilled /></el-icon> 【红线】{{ r.name }}</strong>
+            <strong><el-icon>
+                <WarningFilled />
+              </el-icon> 【红线】{{ r.name }}</strong>
             <p>{{ r.action }}</p>
           </div>
         </div>
@@ -306,11 +343,15 @@ function reset() {
           <el-empty v-if="!result.advices?.length" description="未命中规则" />
         </div>
 
-        <p class="disclaimer"><el-icon><InfoFilled /></el-icon> {{ result.disclaimer }}</p>
-        
+        <p class="disclaimer"><el-icon>
+            <InfoFilled />
+          </el-icon> {{ result.disclaimer }}</p>
+
         <div class="nav">
           <el-button type="primary" @click="reset">
-            <el-icon class="btn-icon"><RefreshLeft /></el-icon>重新填写
+            <el-icon class="btn-icon">
+              <RefreshLeft />
+            </el-icon>重新填写
           </el-button>
         </div>
       </el-card>
@@ -325,30 +366,125 @@ function reset() {
   --bg: #f6f8fa;
   --card: #fff;
 }
-body { margin: 0; background: var(--bg); font-family: sans-serif; }
-* { box-sizing: border-box; }
-.page { max-width: 800px; margin: 0 auto; padding: 28px 18px; }
 
-.brand { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
-.brand-icon { width: 50px; height: 50px; background: var(--primary); color: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-.brand-text h1 { margin: 0 0 4px; font-size: 20px; color: #333; }
-.brand-text p { margin: 0; color: #666; font-size: 13px; }
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: sans-serif;
+}
 
-.panel { border-radius: 12px; margin-bottom: 18px; }
-.panel :deep(.el-card__body) { padding: 24px; }
-.form-head { border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 20px; }
-.form-head h2 { margin: 0; font-size: 18px; color: #333; }
-.nav { display: flex; justify-content: center; gap: 12px; margin-top: 24px; }
-.btn-icon { margin-right: 4px; }
+* {
+  box-sizing: border-box;
+}
 
-.result-head { border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 16px; }
-.result-head h2 { margin: 0; font-size: 18px; }
-.redline-item { background: #fef2f2; border-left: 4px solid var(--danger); padding: 12px; margin-bottom: 12px; border-radius: 6px; }
-.advice-item { border-left: 4px solid var(--primary); padding: 12px; margin-bottom: 12px; background: #f8fafc; border-radius: 6px; }
-.disclaimer { font-size: 12px; color: #999; text-align: center; margin-top: 20px; }
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 28px 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.brand-icon {
+  width: 50px;
+  height: 50px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-text h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: #333;
+}
+
+.brand-text p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.panel {
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+
+.panel :deep(.el-card__body) {
+  padding: 24px;
+}
+
+.form-head {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.form-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.btn-icon {
+  margin-right: 4px;
+}
+
+.result-head {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.result-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.redline-item {
+  background: #fef2f2;
+  border-left: 4px solid var(--danger);
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.advice-item {
+  border-left: 4px solid var(--primary);
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.disclaimer {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-top: 20px;
+}
 
 /* 必填项红星 */
-.req { color: var(--danger); margin-right: 4px; font-weight: bold; }
+.req {
+  color: var(--danger);
+  margin-right: 4px;
+  font-weight: bold;
+}
 
 /* 底部悬浮按钮的样式 */
 .floating-nav {
@@ -361,41 +497,130 @@ body { margin: 0; background: var(--bg); font-family: sans-serif; }
   display: flex;
   justify-content: center;
   gap: 12px;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   z-index: 100;
 }
 
 
 /* ===== 胶囊按钮样式 ===== */
-.option-group { display: flex; flex-wrap: wrap; gap: 9px; }
-.opt { position: relative; }
-.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.opt {
+  position: relative;
+}
+
+.opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .opt span {
-  display: inline-block; padding: 8px 17px; border: 1px solid #e2e8f0;
-  border-radius: 9px; font-size: 13.5px; color: #475569; cursor: pointer;
-  background: #fff; transition: all 0.15s; user-select: none;
+  display: inline-block;
+  padding: 8px 17px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 13.5px;
+  color: #475569;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.15s;
+  user-select: none;
 }
-.opt:hover span { border-color: var(--primary); }
-.opt input:checked + span { 
-  background: #f0f7fb; border-color: var(--primary); 
-  color: var(--primary); font-weight: 600; 
+
+.opt:hover span {
+  border-color: var(--primary);
 }
-.opt input:checked + span::after { content: ' ✓'; }
-.opt.danger span { color: var(--danger); border-color: #fecaca; }
-.opt.danger input:checked + span { background: #fef2f2; border-color: var(--danger); color: var(--danger); }
-.opt-sm span { padding: 5px 12px; font-size: 12.5px; }
+
+.opt input:checked+span {
+  background: #f0f7fb;
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.opt input:checked+span::after {
+  content: ' ✓';
+}
+
+.opt.danger span {
+  color: var(--danger);
+  border-color: #fecaca;
+}
+
+.opt.danger input:checked+span {
+  background: #fef2f2;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.opt-sm span {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
 
 /* ===== 辅助检查卡片网格样式 ===== */
-.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.exam-card { border: 1px solid #e2e8f0; border-radius: 11px; padding: 14px 15px; background: #fff; }
-.exam-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
-.exam-title { font-size: 15px; font-weight: 600; color: #333; }
-.exam-items { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-.exam-body { display: flex; flex-direction: column; gap: 10px; }
-.exam-field { display: flex; align-items: center; justify-content: space-between; }
-.exam-label { font-size: 13px; color: #475569; }
-.ctrl-sm { width: 130px; }
+.exam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.exam-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  padding: 14px 15px;
+  background: #fff;
+}
+
+.exam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.exam-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.exam-items {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.exam-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exam-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.exam-label {
+  font-size: 13px;
+  color: #475569;
+}
+
+.ctrl-sm {
+  width: 130px;
+}
 
 /* 防止最后面几个输入框被悬浮按钮遮挡 */
-.spacer { height: 80px; }
+.spacer {
+  height: 80px;
+}
 </style>
