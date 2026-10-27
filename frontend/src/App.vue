@@ -2,7 +2,7 @@
 import { reactive, ref, computed } from 'vue'
 import { Document, RefreshLeft, FirstAidKit, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
 
-// ===== 极简数据结构定义 =====
+// ===== 数据结构定义 =====
 const basicFields = [
   { key: 'age', label: '年龄 (岁)' },
   { key: 'sex', label: '性别', type: 'select', options: ['男', '女'], required: true },   //性别换成下拉
@@ -19,23 +19,37 @@ const basicFields = [
   { key: 'discharge_plan', label: '出院抗栓方案' },
 ]
 
+// 【修改 historyFields】
 const historyFields = [
-  { key: 'hypertension_grade', label: '高血压分级' },
- { key: 'comorbidities', label: '其他合并症', type: 'select', options: ['无', '糖尿病', '高脂血症', '房颤', '心衰', 'COPD', '哮喘', 'CKD'] },
-  { key: 'cha2ds2_vasc', label: 'CHA2DS2-VASc 评分' },
-  { key: 'has_bled', label: 'HAS-BLED 评分' },
-  { key: 'precis_dapt', label: 'PRECISE-DAPT 评分' },
-  { key: 'cv_history', label: '心脑血管既往史' },
-  { key: 'other_history', label: '其他相关既往史' },
+  // 高血压换成 options
+  { key: 'hypertension_grade', label: '高血压分级', options: ['1级', '2级', '3级'] },
+  // multi: true 代表可以多选
+  { key: 'comorbidities', label: '其他合并症', multi: true, options: ['无', '糖尿病', '高脂血症', '房颤', '心衰', 'COPD', '哮喘', 'CKD'] },
+  { key: 'cha2ds2_vasc', label: 'CHA2DS2-VASc 评分', placeholder: '例如：3' },
+  { key: 'has_bled', label: 'HAS-BLED 评分', placeholder: '例如：2' },
+  { key: 'precis_dapt', label: 'PRECISE-DAPT 评分', placeholder: '例如：15' },
+  // 原来是输入框，改成选项
+  { key: 'cv_history', label: '心脑血管既往史', multi: true, options: ['既往心梗史', '既往卒中/TIA史'] },
+  { key: 'other_history', label: '其他相关既往史（选填）', placeholder: '选填' },
 ]
 
-const examFields = [
-  { key: 'hb_low', label: '血红蛋白是否降低', type: 'select', options: ['否', '是'] },  //Hb是否降低换成下拉
-  { key: 'plt_status', label: '血小板状态' },
-  { key: 'alt_ast_status', label: 'ALT/AST 状态' },
-  { key: 'scr', label: '血肌酐 Scr' },
-  { key: 'egfr', label: 'eGFR' },
-  { key: 'lvef', label: 'LVEF (%)' },
+
+// 【新增 examCards 替换原来的 examFields】
+const examCards = [
+  { name: '血常规', items: 'Hb / WBC / PLT', fields: [
+    { key: 'hb_low', label: '血红蛋白降低', type: 'bool' }, // 这个用开关
+    { key: 'plt_status', label: '血小板', type: 'status', options: ['正常', '降低'] }, // 小胶囊
+  ]},
+  { name: '肝功能', items: 'ALT / AST', fields: [
+    { key: 'alt_ast_status', label: 'ALT/AST', type: 'status', options: ['正常', '轻度升高', '重度升高'] },
+  ]},
+  { name: '肾功能', items: '肌酐 / eGFR', fields: [
+    { key: 'scr', label: '血肌酐 Scr', type: 'number', unit: 'μmol/L' }, // 数字框
+    { key: 'egfr', label: 'eGFR', type: 'number', unit: 'ml/min' },
+  ]},
+  { name: '超声心动图', items: 'EF / 室壁运动', fields: [
+    { key: 'lvef', label: 'LVEF', type: 'number', unit: '%' },
+  ]},
 ]
 
 const medFields = [
@@ -50,17 +64,23 @@ const medFields = [
   { key: 'glucose', label: '降糖类药物' },
 ]
 
+// 【修改 symptomFields】
 const symptomFields = [
-  { key: 'symptoms', label: '症状表现' },
-  { key: 'bleeding', label: '出血征象' },
-  { key: 'self_stop_days', label: '自行停药天数' },
-  { key: 'blood_activating', label: '是否自服活血药', type: 'select', options: ['否', '是'] },  //是否自服活血药换成下拉
+  { key: 'symptoms', label: '症状表现', multi: true, options: ['胸痛', '胸闷气短', '晕厥', '活动耐量下降'] },
+  // 把出血征象里危险的选项加上 dangerOptions
+  { key: 'bleeding', label: '出血征象', multi: true, 
+    options: ['淤青', '牙龈出血', '呕血', '尿血', '黑便'], 
+    dangerOptions: ['呕血', '尿血', '黑便'] // 这一项是为了变红
+  },
+  { key: 'self_stop_days', label: '自行停药天数', unit: '天', placeholder: '未停药请填 0' },
+  { key: 'blood_activating', label: '是否自服活血药', options: ['否', '是'] }, // 改成选项
 ]
 
+// 更新 steps 数组，把第三步指向新的 examCards
 const steps = [
   { title: '基本信息', fields: basicFields },
   { title: '病史与合并症', fields: historyFields },
-  { title: '辅助检查', fields: examFields },
+  { title: '辅助检查', isExamGrid: true }, // 这里加个标记，告诉 template 特殊渲染
   { title: '当前用药', fields: medFields },
   { title: '症状与行为', fields: symptomFields },
 ]
@@ -72,16 +92,29 @@ const form = reactive<Record<string, string>>({})
 const result = ref<any>(null)
 const errorMsg = ref('')
 
+
 // 初始化空表单
 for (const step of steps) {
-  for (const f of step.fields) {
-    form[f.key] = ''
+  if (step.fields) {
+    for (const f of step.fields) {
+      // 如果是多选，初始给个空数组，其他给空字符串
+      form[f.key] = f.multi ? [] : ''
+    }
+  }
+}
+// 给卡片里的字段赋初值
+for (const c of examCards) {
+  for (const f of c.fields) {
+    if (f.type === 'bool') form[f.key] = false
+    else if (f.type === 'status') form[f.key] = '正常'
+    else form[f.key] = ''
   }
 }
 
 // ===== 提交逻辑 =====
 //必填项
-const currentStepFields = computed(() => steps[currentStep.value].fields)
+// 修改为：
+const currentStepFields = computed(() => steps[currentStep.value].fields || [])
 
 function nextStep() {
   const emptyRequired = currentStepFields.value.find(f => f.required && !form[f.key])
@@ -172,35 +205,76 @@ function reset() {
           <h2>{{ steps[currentStep].title }}</h2>
         </div>
 
-        <el-form label-width="200px" label-position="left">
-          <!-- 替换原来的 <el-form-item> 内部结构 -->
-            <el-form-item v-for="f in steps[currentStep].fields" :key="f.key"> 
-              <template #label>
-                <span v-if="f.required" class="req">*</span> {{ f.label }}
-              </template>
-              <!-- 如果有下拉选项就用下拉框 -->
-               <el-select v-if="f.type === 'select'" v-model="form[f.key]" :placeholder="f.placeholder || '请选择'" clearable style="width: 100%">
-                <el-option v-for="opt in f.options" :key="opt" :label="opt" :value="opt" />
-              </el-select>
-              <!-- 普通输入框，带单位后缀 -->
-               <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '请输入'" clearable>
+        <!-- ================= 1. 普通表单页 (非第三步) ================= -->
+        <el-form v-if="currentStep !== 2" label-width="170px" label-position="left">
+          <el-form-item v-for="f in steps[currentStep].fields" :key="f.key">
+            <template #label>
+              <span v-if="f.required" class="req">*</span> {{ f.label }}
+            </template>
+
+            <div class="field-wrap">
+              <!-- 有 options 渲染胶囊按钮 -->
+              <div v-if="f.options" class="option-group">
+                <label v-for="op in f.options" :key="op" class="opt" 
+                :class="{ danger: f.dangerOptions && f.dangerOptions.includes(op) }">
+                  <input :type="f.multi ? 'checkbox' : 'radio'" 
+                  :name="f.key" :value="op" 
+                  v-model="form[f.key]" />
+                  <span>{{ op }}</span>
+                </label>
+              </div>
+
+              <!-- 没有 options 渲染输入框 -->
+              <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '请输入'" clearable>
                 <template v-if="f.unit" #append>{{ f.unit }}</template>
               </el-input>
-            </el-form-item>
+            </div>
+          </el-form-item>
         </el-form>
-        
-        
-        <!-- 底部按钮改为固定悬浮 -->
-         <div class="floating-nav">
-            <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
-            <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="nextStep">下一步</el-button>
-            <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
-              <el-icon class="btn-icon"><Document /></el-icon>提交分析
-            </el-button>
+
+        <!-- ================= 2. 第三步：辅助检查卡片 ================= -->
+        <div v-if="currentStep === 2" class="exam-grid">
+          <div v-for="c in examCards" :key="c.name" class="exam-card">
+            <div class="exam-head">
+              <div>
+                <div class="exam-title">{{ c.name }}</div>
+                <div class="exam-items">{{ c.items }}</div>
+              </div>
+            </div>
+            <div class="exam-body">
+              <div v-for="f in c.fields" :key="f.key" class="exam-field">
+                <span class="exam-label">{{ f.label }}</span>
+                
+                <!-- 开关 -->
+                <el-switch v-if="f.type === 'bool'" v-model="form[f.key]" />
+                
+                <!-- 小胶囊 -->
+                <div v-else-if="f.type === 'status'" class="option-group">
+                  <label v-for="op in f.options" :key="op" class="opt opt-sm">
+                    <input type="radio" :name="f.key" :value="op" v-model="form[f.key]" />
+                    <span>{{ op }}</span>
+                  </label>
+                </div>
+                
+                <!-- 数字框 -->
+                <el-input-number v-else v-model="form[f.key]" :min="0" controls-position="right" class="ctrl-sm">
+                  <template #suffix v-if="f.unit">{{ f.unit }}</template>
+                </el-input-number>
+              </div>
+            </div>
           </div>
-          <!-- 底部留白，防止表单被悬浮按钮挡住 -->
-           <div class="spacer"></div>
-          </el-card>
+        </div>
+
+        <!-- ================= 3. 底部悬浮按钮 ================= -->
+        <div class="floating-nav">
+          <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
+          <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="nextStep">下一步</el-button>
+          <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
+            <el-icon class="btn-icon"><Document /></el-icon>提交分析
+          </el-button>
+        </div>
+        <div class="spacer"></div>
+      </el-card>
     </template>
 
     <!-- 错误区 -->
@@ -290,6 +364,37 @@ body { margin: 0; background: var(--bg); font-family: sans-serif; }
   box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
   z-index: 100;
 }
+
+
+/* ===== 胶囊按钮样式 ===== */
+.option-group { display: flex; flex-wrap: wrap; gap: 9px; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt span {
+  display: inline-block; padding: 8px 17px; border: 1px solid #e2e8f0;
+  border-radius: 9px; font-size: 13.5px; color: #475569; cursor: pointer;
+  background: #fff; transition: all 0.15s; user-select: none;
+}
+.opt:hover span { border-color: var(--primary); }
+.opt input:checked + span { 
+  background: #f0f7fb; border-color: var(--primary); 
+  color: var(--primary); font-weight: 600; 
+}
+.opt input:checked + span::after { content: ' ✓'; }
+.opt.danger span { color: var(--danger); border-color: #fecaca; }
+.opt.danger input:checked + span { background: #fef2f2; border-color: var(--danger); color: var(--danger); }
+.opt-sm span { padding: 5px 12px; font-size: 12.5px; }
+
+/* ===== 辅助检查卡片网格样式 ===== */
+.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.exam-card { border: 1px solid #e2e8f0; border-radius: 11px; padding: 14px 15px; background: #fff; }
+.exam-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
+.exam-title { font-size: 15px; font-weight: 600; color: #333; }
+.exam-items { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.exam-body { display: flex; flex-direction: column; gap: 10px; }
+.exam-field { display: flex; align-items: center; justify-content: space-between; }
+.exam-label { font-size: 13px; color: #475569; }
+.ctrl-sm { width: 130px; }
 
 /* 防止最后面几个输入框被悬浮按钮遮挡 */
 .spacer { height: 80px; }
