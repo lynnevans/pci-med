@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import { Document, RefreshLeft, FirstAidKit, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
 
 // ===== 极简数据结构定义 =====
 const basicFields = [
   { key: 'age', label: '年龄 (岁)' },
-  { key: 'sex', label: '性别' },
+  { key: 'sex', label: '性别', type: 'select', options: ['男', '女'], required: true },   //性别换成下拉
   { key: 'weight', label: '体重 (kg)' },
   { key: 'surgery_date', label: '手术日期 (如 2023-01-01)' },
   { key: 'post_pci_months', label: '术后时长 (月)' },
@@ -21,7 +21,7 @@ const basicFields = [
 
 const historyFields = [
   { key: 'hypertension_grade', label: '高血压分级' },
-  { key: 'comorbidities', label: '其他合并症' },
+ { key: 'comorbidities', label: '其他合并症', type: 'select', options: ['无', '糖尿病', '高脂血症', '房颤', '心衰', 'COPD', '哮喘', 'CKD'] },
   { key: 'cha2ds2_vasc', label: 'CHA2DS2-VASc 评分' },
   { key: 'has_bled', label: 'HAS-BLED 评分' },
   { key: 'precis_dapt', label: 'PRECISE-DAPT 评分' },
@@ -30,7 +30,7 @@ const historyFields = [
 ]
 
 const examFields = [
-  { key: 'hb_low', label: '血红蛋白是否降低 (填 是/否)' },
+  { key: 'hb_low', label: '血红蛋白是否降低', type: 'select', options: ['否', '是'] },  //Hb是否降低换成下拉
   { key: 'plt_status', label: '血小板状态' },
   { key: 'alt_ast_status', label: 'ALT/AST 状态' },
   { key: 'scr', label: '血肌酐 Scr' },
@@ -54,7 +54,7 @@ const symptomFields = [
   { key: 'symptoms', label: '症状表现' },
   { key: 'bleeding', label: '出血征象' },
   { key: 'self_stop_days', label: '自行停药天数' },
-  { key: 'blood_activating', label: '是否自服活血药 (填 是/否)' },
+  { key: 'blood_activating', label: '是否自服活血药', type: 'select', options: ['否', '是'] },  //是否自服活血药换成下拉
 ]
 
 const steps = [
@@ -80,6 +80,18 @@ for (const step of steps) {
 }
 
 // ===== 提交逻辑 =====
+//必填项
+const currentStepFields = computed(() => steps[currentStep.value].fields)
+
+function nextStep() {
+  const emptyRequired = currentStepFields.value.find(f => f.required && !form[f.key])
+  if (emptyRequired) {
+    alert(`请填写必填项：${emptyRequired.label}`) // 这里先用原生弹窗
+    return
+  }
+  currentStep.value++
+}
+
 // 将输入框的字符串转为后端需要的格式（处理数字、布尔、多选）
 function buildPayload() {
   const p: Record<string, any> = {}
@@ -161,19 +173,34 @@ function reset() {
         </div>
 
         <el-form label-width="200px" label-position="left">
-          <el-form-item v-for="f in steps[currentStep].fields" :key="f.key" :label="f.label">
-            <el-input v-model="form[f.key]" placeholder="请输入..." clearable />
-          </el-form-item>
+          <!-- 替换原来的 <el-form-item> 内部结构 -->
+            <el-form-item v-for="f in steps[currentStep].fields" :key="f.key"> 
+              <template #label>
+                <span v-if="f.required" class="req">*</span> {{ f.label }}
+              </template>
+              <!-- 如果有下拉选项就用下拉框 -->
+               <el-select v-if="f.type === 'select'" v-model="form[f.key]" :placeholder="f.placeholder || '请选择'" clearable style="width: 100%">
+                <el-option v-for="opt in f.options" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+              <!-- 普通输入框，带单位后缀 -->
+               <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '请输入'" clearable>
+                <template v-if="f.unit" #append>{{ f.unit }}</template>
+              </el-input>
+            </el-form-item>
         </el-form>
-
-        <div class="nav">
-          <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
-          <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="currentStep++">下一步</el-button>
-          <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
-            <el-icon class="btn-icon"><Document /></el-icon>提交分析
-          </el-button>
-        </div>
-      </el-card>
+        
+        
+        <!-- 底部按钮改为固定悬浮 -->
+         <div class="floating-nav">
+            <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
+            <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="nextStep">下一步</el-button>
+            <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
+              <el-icon class="btn-icon"><Document /></el-icon>提交分析
+            </el-button>
+          </div>
+          <!-- 底部留白，防止表单被悬浮按钮挡住 -->
+           <div class="spacer"></div>
+          </el-card>
     </template>
 
     <!-- 错误区 -->
@@ -245,4 +272,25 @@ body { margin: 0; background: var(--bg); font-family: sans-serif; }
 .redline-item { background: #fef2f2; border-left: 4px solid var(--danger); padding: 12px; margin-bottom: 12px; border-radius: 6px; }
 .advice-item { border-left: 4px solid var(--primary); padding: 12px; margin-bottom: 12px; background: #f8fafc; border-radius: 6px; }
 .disclaimer { font-size: 12px; color: #999; text-align: center; margin-top: 20px; }
+
+/* 必填项红星 */
+.req { color: var(--danger); margin-right: 4px; font-weight: bold; }
+
+/* 底部悬浮按钮的样式 */
+.floating-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  z-index: 100;
+}
+
+/* 防止最后面几个输入框被悬浮按钮遮挡 */
+.spacer { height: 80px; }
 </style>
