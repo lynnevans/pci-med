@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
 import { Document, RefreshLeft, FirstAidKit, WarningFilled, InfoFilled } from '@element-plus/icons-vue'
+const view = ref<'form' | 'chat'>('form')
 
 // ===== 数据结构定义 =====
 const basicFields = [
@@ -149,7 +150,7 @@ function buildPayload() {
 
   for (const key in form) {
     let val = form[key]
-     // 如果是多选数组，直接赋值给后端，跳过 trim 处理
+    // 如果是多选数组，直接赋值给后端，跳过 trim 处理
     if (Array.isArray(val)) {
       if (val.length > 0) p[key] = val
       continue
@@ -215,10 +216,17 @@ function reset() {
           <FirstAidKit />
         </el-icon></div>
       <div class="brand-text">
-        <h1>PCI 术后用药管理助手 (2.0版)</h1>
-        <p>初版测试，所有字段文本输入</p>
+        <h1>PCI 术后用药管理助手</h1>
+        <p>基于分级诊疗指南的规则引擎 · 零自由发挥 · 每一条建议可溯源</p>
       </div>
+      <span class="brand-tag">基层辅助决策</span>
     </header>
+
+    <div class="view-tabs">
+      <button :class="['view-tab', { on: view === 'form' }]" @click="view = 'form'">智能用药方案</button>
+      <button :class="['view-tab', { on: view === 'chat' }]" @click="view = 'chat'">AI 用药问答</button>
+    </div>
+
 
     <!-- 填表区 -->
     <template v-if="!result && !errorMsg">
@@ -298,17 +306,13 @@ function reset() {
           </div>
         </div>
 
-        <!-- ================= 3. 底部悬浮按钮 ================= -->
-        <div class="floating-nav">
+        <!-- ================= 3. 底部按钮 ================= -->
+        <div class="nav">
           <el-button v-if="currentStep > 0" size="large" @click="currentStep--">上一步</el-button>
           <el-button v-if="currentStep < steps.length - 1" type="primary" size="large" @click="nextStep">下一步</el-button>
-          <el-button v-else type="primary" size="large" :loading="loading" @click="submit">
-            <el-icon class="btn-icon">
-              <Document />
-            </el-icon>提交分析
-          </el-button>
+          <el-button v-else type="primary" size="large" :loading="loading" @click="submit">提交分析</el-button>
         </div>
-        <div class="spacer"></div>
+        <p class="hint"><span class="req">*</span> 为核心字段，其余按实际可获取情况选填</p>
       </el-card>
     </template>
 
@@ -362,26 +366,43 @@ function reset() {
 <style>
 :root {
   --primary: #0369a1;
+  --primary-dark: #075985;
+  --primary-50: #f0f7fb;
   --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --success: #16a34a;
+  --warning: #d97706;
   --bg: #f6f8fa;
-  --card: #fff;
+  --card: #ffffff;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --border: #e2e8f0;
 }
 
 body {
   margin: 0;
   background: var(--bg);
-  font-family: sans-serif;
+  font-family: -apple-system,
+  "PingFang SC", 
+  "Microsoft YaHei", 
+  "Helvetica Neue", 
+  sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
+
+
 .page {
-  max-width: 800px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 28px 18px;
+  padding: 28px 18px 70px;
 }
+
+/* ===== 品牌区 ===== */
 
 .brand {
   display: flex;
@@ -393,234 +414,155 @@ body {
 .brand-icon {
   width: 50px;
   height: 50px;
-  background: var(--primary);
+  border-radius: 14px; 
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(3, 105, 161, 0.25);
 }
 
 .brand-text h1 {
-  margin: 0 0 4px;
-  font-size: 20px;
-  color: #333;
+  margin: 0 0 6px;
+  font-size: 24px;
+  color: var(--text); 
+  letter-spacing: 0.5px;
 }
 
 .brand-text p {
   margin: 0;
-  color: #666;
-  font-size: 13px;
-}
-
-.panel {
-  border-radius: 12px;
-  margin-bottom: 18px;
-}
-
-.panel :deep(.el-card__body) {
-  padding: 24px;
-}
-
-.form-head {
-  border-bottom: 1px solid #eee;
-  padding-bottom: 12px;
-  margin-bottom: 20px;
-}
-
-.form-head h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.nav {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.btn-icon {
-  margin-right: 4px;
-}
-
-.result-head {
-  border-bottom: 1px solid #eee;
-  padding-bottom: 12px;
-  margin-bottom: 16px;
-}
-
-.result-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.redline-item {
-  background: #fef2f2;
-  border-left: 4px solid var(--danger);
-  padding: 12px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-}
-
-.advice-item {
-  border-left: 4px solid var(--primary);
-  padding: 12px;
-  margin-bottom: 12px;
-  background: #f8fafc;
-  border-radius: 6px;
-}
-
-.disclaimer {
-  font-size: 12px;
-  color: #999;
-  text-align: center;
-  margin-top: 20px;
-}
-
-/* 必填项红星 */
-.req {
-  color: var(--danger);
-  margin-right: 4px;
-  font-weight: bold;
-}
-
-/* 底部悬浮按钮的样式 */
-.floating-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 15px;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
-
-
-/* ===== 胶囊按钮样式 ===== */
-.option-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-}
-
-.opt {
-  position: relative;
-}
-
-.opt input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.opt span {
-  display: inline-block;
-  padding: 8px 17px;
-  border: 1px solid #e2e8f0;
-  border-radius: 9px;
+  color: var(--text-2); 
   font-size: 13.5px;
-  color: #475569;
-  cursor: pointer;
-  background: #fff;
-  transition: all 0.15s;
-  user-select: none;
 }
 
-.opt:hover span {
-  border-color: var(--primary);
-}
-
-.opt input:checked+span {
-  background: #f0f7fb;
-  border-color: var(--primary);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.opt input:checked+span::after {
-  content: ' ✓';
-}
-
-.opt.danger span {
-  color: var(--danger);
-  border-color: #fecaca;
-}
-
-.opt.danger input:checked+span {
-  background: #fef2f2;
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.opt-sm span {
+.brand-tag {
+  margin-left: auto; 
+  flex-shrink: 0; 
+  font-size: 12px; 
   padding: 5px 12px;
-  font-size: 12.5px;
+  border-radius: 20px;
+  background: rgba(3, 105, 161, 0.08); 
+  color: var(--primary); 
+  border: 1px solid rgba(3, 105, 161, 0.2);
 }
 
-/* ===== 辅助检查卡片网格样式 ===== */
-.exam-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+/* ===== 视图切换 Tab ===== */
+.view-tabs { display: flex; gap: 8px; margin-bottom: 18px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 5px; }
+.view-tab { flex: 1; padding: 10px 0; border: none; background: transparent; border-radius: 9px; font-size: 14.5px; color: var(--text-2); cursor: pointer; font-weight: 500; transition: all 0.2s; font-family: inherit; }
+.view-tab.on { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(3, 105, 161, 0.25); }
+
+/* ===== 卡片面板 ===== */
+.panel { border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px; }
+.panel :deep(.el-card__body) { padding: 22px 26px; }
+.steps { padding: 4px 0 2px; }
+.steps :deep(.el-step__title.is-process) { color: var(--primary); font-weight: 600; }
+.steps :deep(.el-step__head.is-process) { color: var(--primary); border-color: var(--primary); }
+
+/* ===== 表单区 ===== */
+.form-head { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+.form-badge {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  background: var(--primary); color: #fff; font-size: 18px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.form-head h2 { margin: 0 0 3px; font-size: 19px; color: var(--text); }
+.form-head p { margin: 0; font-size: 13px; color: var(--text-3); }
+
+.field-label { color: var(--text-2); font-weight: 500; }
+.field-label.label-danger { color: var(--danger); font-weight: 600; }
+.req { color: var(--danger); margin-right: 3px; }
+.field-wrap { width: 100%; }
+.ctrl { width: 240px; }
+.ctrl-text { width: 380px; }
+
+/* 胶囊选择按钮 */
+.option-group { display: flex; flex-wrap: wrap; gap: 9px; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt span {
+  display: inline-block; padding: 8px 17px; border: 1px solid var(--border);
+  border-radius: 9px; font-size: 13.5px; color: var(--text-2); cursor: pointer;
+  background: #fff; transition: all 0.15s; user-select: none; line-height: 1.5;
+}
+.opt:hover span { border-color: var(--primary); }
+.opt input:checked + span { background: var(--primary-50); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.opt input:checked + span::after { content: ' ✓'; }
+.opt input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* 红色胶囊（出血征象严重项） */
+.opt.danger span { color: var(--danger); border-color: #fecaca; }
+.opt.danger input:checked + span { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); font-weight: 600; }
+.opt-sm span { padding: 5px 12px; font-size: 12.5px; }
+
+.field-note { margin: 6px 0 0; color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
+.form :deep(.el-form-item) { margin-bottom: 20px; }
+
+/* 界面 3 · 拍照提示条 */
+.section-tip {
+  display: flex; align-items: center; gap: 8px; padding: 11px 15px; margin-bottom: 18px;
+  background: rgba(3, 105, 161, 0.06); color: var(--primary); border: 1px solid rgba(3, 105, 161, 0.18);
+  border-radius: 9px; font-size: 13px; line-height: 1.6;
 }
 
-.exam-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 11px;
-  padding: 14px 15px;
-  background: #fff;
-}
+/* 界面 3 · 检查卡片 */
+.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.exam-card { border: 1px solid var(--border); border-radius: 11px; padding: 14px 15px; background: #fff; }
+.exam-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px dashed var(--border); }
+.exam-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.exam-items { display: block; font-size: 12px; color: var(--text-3); font-weight: 400; margin-top: 2px; }
+.exam-body { display: flex; flex-direction: column; gap: 10px; }
+.exam-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.exam-field .option-group { justify-content: flex-end; }
+.exam-label { font-size: 13px; color: var(--text-2); flex-shrink: 0; }
+.ctrl-sm { width: 150px; }
 
-.exam-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px dashed #e2e8f0;
-  padding-bottom: 10px;
-  margin-bottom: 10px;
-}
+/* 界面 4 · 抗血小板表 */
+.ap-block { margin-bottom: 22px; }
+.ap-title { margin: 0 0 6px; font-size: 15.5px; color: var(--text); }
+.ap-sub { margin: 0 0 12px; font-size: 12.5px; color: var(--text-3); }
+.ap-table { margin-bottom: 20px; }
+.ap-table :deep(.el-input-number) { width: 140px; }
+.ap-name { font-weight: 600; color: var(--text); }
+.ap-std { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
-.exam-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #333;
-}
+/* 界面 4 · 用药折叠 */
+.med-collapse { border: 1px solid var(--border); border-radius: 11px; }
+.med-collapse :deep(.el-collapse-item__header) { padding: 0 16px; height: auto; min-height: 52px; }
+.med-collapse :deep(.el-collapse-item__content) { padding-bottom: 14px; }
+.med-name { font-size: 15px; font-weight: 600; color: var(--text); margin-right: 12px; }
+.med-desc { font-size: 12.5px; color: var(--text-3); }
+.med-body { padding: 4px 16px 0; }
+.med-subtitle { font-size: 13px; color: var(--text-2); font-weight: 500; margin: 14px 0 8px; }
 
-.exam-items {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
+.nav { display: flex; justify-content: center; gap: 14px; margin-top: 26px; }
+.btn-icon { margin-right: 5px; vertical-align: -2px; }
+.hint { text-align: center; color: var(--text-3); font-size: 12.5px; margin: 16px 0 0; }
 
-.exam-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* ===== 结果区 ===== */
+.result-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+.result-head h2 { margin: 0; font-size: 20px; color: var(--text); }
+.tag-chip { font-size: 12px; padding: 4px 12px; border-radius: 16px; margin-left: 8px; background: rgba(217, 119, 6, 0.1); color: var(--warning); border: 1px solid rgba(217, 119, 6, 0.25); }
 
-.exam-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+.redline-item { background: var(--danger-bg); border: 1px solid #fecaca; border-left: 4px solid var(--danger); border-radius: 10px; padding: 15px 18px; margin-bottom: 14px; }
+.redline-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.redline-title { font-weight: 700; color: var(--danger); font-size: 15.5px; }
+.redline-action { margin: 0; color: #7f1d1d; line-height: 1.7; font-size: 14.5px; }
 
-.exam-label {
-  font-size: 13px;
-  color: #475569;
-}
+.advice-item { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; transition: box-shadow 0.2s; }
+.advice-item:hover { box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06); }
+.advice-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.advice-id { font-weight: 700; color: var(--primary); font-size: 14.5px; }
+.advice-text { margin: 0 0 8px; color: var(--text); line-height: 1.7; font-size: 14.5px; }
+.advice-src { margin: 0; color: var(--text-3); font-size: 12.5px; display: flex; align-items: center; gap: 4px; }
 
-.ctrl-sm {
-  width: 130px;
-}
+.disclaimer { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--text-3); font-size: 12.5px; margin: 24px 0 6px; }
 
-/* 防止最后面几个输入框被悬浮按钮遮挡 */
-.spacer {
-  height: 80px;
+@media (max-width: 640px) {
+  .brand-tag { display: none; }
+  .form :deep(.el-form-item__label) { width: 100% !important; text-align: left; }
+  .ctrl, .ctrl-text { width: 100%; }
+  .exam-grid { grid-template-columns: 1fr; }
+  .med-desc { display: none; }
 }
 </style>
