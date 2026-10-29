@@ -2,15 +2,18 @@
 """
 PCI 术后用药管理 —— 规则引擎 V2（全量 68 条：13 红线 + 55 常规，确定性，零自由发挥）
 
-设计原则：
+设计原则：数据驱动。
   - REDLINES：红线库（13 条），命中即拦截/转诊，优先级最高，绝不进 LLM。
   - RULES：常规规则表（55 条，覆盖 v3.2 全部 14 个域），逐条对应 v3.2 的 IF/THEN/出处/级别。
-  - match(patient)：唯一入口，输入患者字段，返回 {tags, redlines, advices}。
+  - match(patient)：唯一入口，输入患者字段字典，返回 {tags, redlines, advices}。
 
-要求：
+冲突消解（引擎内实现，对应 v3.2 第三部分第 6 条）：
   - 红线库 > 一切常规建议（命中红线即不输出常规）。
   - EL-02 优先于 WT-01（≥80 岁降压目标放宽，覆盖 WT-01 的 140/90）。
 
+用法：
+  python rule_engine.py            # 跑内置 3 个演示
+  from rule_engine import match    # 供 FastAPI 接口调用
 """
 
 
