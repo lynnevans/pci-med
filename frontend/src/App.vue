@@ -4,34 +4,50 @@ import { Document, RefreshLeft, FirstAidKit, WarningFilled, InfoFilled } from '@
 const view = ref<'form' | 'chat'>('form')
 
 // ===== 数据结构定义 =====
+//3.1将字段定义为选项或文本
 const basicFields = [
-  { key: 'age', label: '年龄 (岁)' },
+  { key: 'age', label: '年龄 (岁)', type: 'number', unit: '岁', min: 0, max: 120, required: true },
   { key: 'sex', label: '性别', type: 'select', options: ['男', '女'], required: true },   //性别换成下拉
-  { key: 'weight', label: '体重 (kg)' },
-  { key: 'surgery_date', label: '手术日期 (如 2023-01-01)' },
-  { key: 'post_pci_months', label: '术后时长 (月)' },
-  { key: 'diagnosis', label: '出院诊断' },
-  { key: 'vessels', label: '病变支数' },
-  { key: 'target_vessel', label: '干预血管' },
-  { key: 'dcb_count', label: 'DCB 数量 (个)' },
-  { key: 'brs_count', label: 'BRS 数量 (枚)' },
-  { key: 'des_count', label: 'DES 数量 (枚)' },
-  { key: 'ascvd_risk', label: 'ASCVD 危险分层' },
-  { key: 'discharge_plan', label: '出院抗栓方案' },
+  { key: 'weight', label: '体重 (kg)', type: 'number', unit: 'kg', min: 0, max: 300 },
+  { key: 'surgery_date', label: '手术日期 (如 2023-01-01)', type: 'date', required: true },
+  { key: 'post_pci_months', label: '术后时长', type: 'number', unit: '月', min: 0, max: 240, required: true },
+  { key: 'diagnosis', label: '出院诊断', type: 'select', required: true, options: ['急性ST段抬高型心梗', '急性非ST段抬高型心梗', '不稳定型心绞痛', '稳定型心绞痛', '缺血性心肌病'] },
+  { key: 'vessels', label: '病变支数', type: 'select', options: ['单支', '双支', '三支'] },
+  { key: 'target_vessel', label: '干预血管', type: 'multi', options: ['左主干', '左前降支', '回旋支', '右冠'] },
+  { key: 'dcb_count', label: 'DCB 数量 (个)', type: 'number', unit: '个', min: 0 },
+  { key: 'brs_count', label: 'BRS 数量 (枚)', type: 'number', unit: '枚', min: 0 },
+  { key: 'des_count', label: 'DES 数量 (枚)', type: 'number', unit: '枚', min: 0 },
+  { key: 'ascvd_risk', label: 'ASCVD 危险分层', type: 'select', options: ['极高危', '超高危'] },
+  { key: 'discharge_plan', label: '出院抗栓方案', type: 'text', required: true, placeholder: '如：DAPT 12 个月' },
 ]
 
 // 【修改 historyFields】
 const historyFields = [
-  // 高血压换成 options
-  { key: 'hypertension_grade', label: '高血压分级', options: ['1级', '2级', '3级'] },
-  // multi: true 代表可以多选
-  { key: 'comorbidities', label: '其他合并症', multi: true, options: ['无', '糖尿病', '高脂血症', '房颤', '心衰', 'COPD', '哮喘', 'CKD'] },
-  { key: 'cha2ds2_vasc', label: 'CHA2DS2-VASc 评分', placeholder: '例如：3' },
-  { key: 'has_bled', label: 'HAS-BLED 评分', placeholder: '例如：2' },
-  { key: 'precis_dapt', label: 'PRECISE-DAPT 评分', placeholder: '例如：15' },
-  // 原来是输入框，改成选项
-  { key: 'cv_history', label: '心脑血管既往史', multi: true, options: ['既往心梗史', '既往卒中/TIA史'] },
-  { key: 'other_history', label: '其他相关既往史（选填）', placeholder: '选填' },
+  { key: 'hypertension_grade', label: '高血压分级', type: 'select', options: ['无', '1级', '2级', '3级', '单纯收缩期'] },
+  { key: 'bp_high', label: '规范服药下血压仍 ≥140/90', type: 'boolean' },
+  { key: 'comorbidities', label: '其他合并症', type: 'multi', options: ['糖尿病', '高脂血症', '房颤', '心衰', 'COPD', '哮喘', 'CKD'] },
+  { key: 'cha2ds2_vasc', label: 'CHA₂DS₂-VASc 评分', type: 'number', min: 0, max: 9 },
+  { key: 'has_bled', label: 'HAS-BLED 评分', type: 'number', min: 0, max: 9 },
+  { key: 'precis_dapt', label: 'PRECISE-DAPT 评分', type: 'number', min: 0, max: 60 },
+  { key: 'cv_history', label: '心脑血管既往史', type: 'multi', options: ['既往心梗史', '既往卒中/TIA史'] },
+  { key: 'other_history', label: '其他相关既往史', type: 'multi', options: ['痛风史', '消化道溃疡/出血史', '颅内出血史'] },
+  { key: 'clinical', label: '临床判断', type: 'multi', options: ['无新发缺血事件', '残余炎症/事件高风险'] },
+  { key: 'other_pmh', label: '其他既往史', type: 'text', placeholder: '选填' },
+]
+
+const symptomFields = [
+  { key: 'symptoms', label: '症状表现', type: 'multi', options: ['胸痛', '胸闷气短', '晕厥', '活动耐量下降'] },
+  { key: 'adr', label: '药物相关表现', type: 'multi', options: ['干咳', '踝部/下肢水肿', '静息心动过缓', '心率仍偏快', '抗缺血控制不佳'] },
+  { key: 'bleeding', label: '出血征象', type: 'multi', options: ['淤青', '牙龈出血', '呕血', '尿血', '黑便', '近期致命出血史', '颅内出血史'], dangerOptions: ['呕血', '尿血', '黑便', '近期致命出血史', '颅内出血史'] },
+  { key: 'miss_single_dose', label: '单次漏服抗血小板/他汀', type: 'boolean' },
+  { key: 'self_stop_days', label: '自行停药天数', type: 'number', unit: '天', min: 0 },
+  { key: 'want_stop_antiplatelet', label: '患者拟停用抗血小板药', type: 'boolean' },
+  { key: 'blood_activating', label: '自服活血中成药/鱼油/纳豆激酶', type: 'boolean' },
+  { key: 'need_analgesic', label: '需用镇痛药', type: 'boolean' },
+  { key: 'enhance_ct', label: '拟行增强 CT / 造影', type: 'boolean' },
+  { key: 'planned_surgery', label: '拟行其他手术', type: 'text', placeholder: '选填' },
+  { key: 'referral_plan_confirmed', label: '上级方案下转已确认', type: 'boolean' },
+  { key: 'recent_symptom_after_referral', label: '下转后 1 个月内再发症状', type: 'boolean' },
 ]
 
 
@@ -75,19 +91,6 @@ const medFields = [
 ]
 
 
-// 【修改 symptomFields】
-const symptomFields = [
-  { key: 'symptoms', label: '症状表现', multi: true, options: ['胸痛', '胸闷气短', '晕厥', '活动耐量下降'] },
-  // 把出血征象里危险的选项加上 dangerOptions
-  {
-    key: 'bleeding', label: '出血征象', multi: true,
-    options: ['淤青', '牙龈出血', '呕血', '尿血', '黑便'],
-    dangerOptions: ['呕血', '尿血', '黑便'] // 这一项是为了变红
-  },
-  { key: 'self_stop_days', label: '自行停药天数', unit: '天', placeholder: '未停药请填 0' },
-  { key: 'blood_activating', label: '是否自服活血药', options: ['否', '是'] }, // 改成选项
-]
-
 // 更新 steps 数组，把第三步指向新的 examCards
 const steps = [
   { title: '基本信息', fields: basicFields },
@@ -100,20 +103,21 @@ const steps = [
 // ===== 状态 =====
 const currentStep = ref(0)
 const loading = ref(false)
-const form = reactive<Record<string, string>>({})
+const form = reactive<Record<string, any>>({})
 const result = ref<any>(null)
 const errorMsg = ref('')
 
 
 // 初始化空表单
-for (const step of steps) {
-  if (step.fields) {
-    for (const f of step.fields) {
-      // 如果是多选，初始给个空数组，其他给空字符串
-      form[f.key] = f.multi ? [] : ''
-    }
-  }
+function initField(f: Field, container: Record<string, any>): void {
+  if (f.type === 'boolean') container[f.key] = false
+  else if (f.type === 'multi') container[f.key] = []
+  else if (f.type === 'number') container[f.key] = null
+  else container[f.key] = null
 }
+
+for (const f of [...basicFields, ...historyFields, ...symptomFields]) initField(f, form)
+
 // 给卡片里的字段赋初值
 for (const c of examCards) {
   for (const f of c.fields) {
@@ -243,32 +247,35 @@ function reset() {
 
         <!-- ================= 1. 普通表单页 (非第三步) ================= -->
         <el-form v-if="currentStep !== 2" label-width="170px" label-position="left">
-          <el-form-item v-for="f in steps[currentStep].fields" :key="f.key">
+          <el-form-item v-for="f in currentFields" :key="f.key">
             <template #label>
-              <span v-if="f.required" class="req">*</span> {{ f.label }}
+              <span class="field-label" :class="{ 'label-danger': f.dangerOptions && f.dangerOptions.length }">
+                <span v-if="f.required" class="req">*</span>{{ f.label }}
+              </span>
             </template>
-            <!-- ======= 新增：第4步（用药剂量单位） ======= -->
-            <div v-if="currentStep === 3" class="med-row-wrap">
-              <el-checkbox v-model="form[`${f.key}_unused`]" @change="form[f.key] = ''"
-                style="margin-right: 15px;">未使用此药</el-checkbox>
-              <el-input v-model="form[f.key]" :disabled="form[`${f.key}_unused`]"
-                :placeholder="form[`${f.key}_unused`] ? '已停用' : '请输入剂量'" style="width: 200px;">
-                <template v-if="f.unit" #append>{{ f.unit }}</template>
-              </el-input>
-            </div>
-
-            <!-- ======= 其他步骤保持原样（胶囊或输入框） ======= -->
-            <div v-else class="field-wrap">
-              <div v-if="f.options" class="option-group">
-                <label v-for="op in f.options" :key="op" class="opt"
-                  :class="{ danger: f.dangerOptions && f.dangerOptions.includes(op) }">
-                  <input :type="f.multi ? 'checkbox' : 'radio'" :name="f.key" :value="op" v-model="form[f.key]" />
+            <div class="field-wrap">
+              <el-switch v-if="f.type === 'boolean'" v-model="form[f.key]" active-text="是" inactive-text="否" />
+              <el-input-number v-else-if="f.type === 'number'" v-model="form[f.key]" :min="f.min" :max="f.max"
+                :placeholder="f.placeholder" controls-position="right" class="ctrl">
+                <template #suffix v-if="f.unit">{{ f.unit }}</template>
+              </el-input-number>
+              <el-date-picker v-else-if="f.type === 'date'" v-model="form[f.key]" type="date" value-format="YYYY-MM-DD"
+                placeholder="选择日期" class="ctrl" />
+              <div v-else-if="f.type === 'select'" class="option-group">
+                <label v-for="op in f.options" :key="op" class="opt">
+                  <input type="radio" :name="f.key" :value="op" v-model="form[f.key]" />
                   <span>{{ op }}</span>
                 </label>
               </div>
-              <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '请输入'" clearable>
-                <template v-if="f.unit" #append>{{ f.unit }}</template>
-              </el-input>
+              <div v-else-if="f.type === 'multi'" class="option-group">
+                <label v-for="op in f.options" :key="op" class="opt"
+                  :class="{ danger: f.dangerOptions && f.dangerOptions.includes(op) }">
+                  <input type="checkbox" :value="op" v-model="form[f.key]" />
+                  <span>{{ op }}</span>
+                </label>
+              </div>
+              <el-input v-else v-model="form[f.key]" :placeholder="f.placeholder || '选填'" class="ctrl-text" />
+              <p v-if="f.note" class="field-note">{{ f.note }}</p>
             </div>
           </el-form-item>
         </el-form>
@@ -384,10 +391,10 @@ body {
   margin: 0;
   background: var(--bg);
   font-family: -apple-system,
-  "PingFang SC", 
-  "Microsoft YaHei", 
-  "Helvetica Neue", 
-  sans-serif;
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Helvetica Neue",
+    sans-serif;
 }
 
 * {
@@ -414,7 +421,7 @@ body {
 .brand-icon {
   width: 50px;
   height: 50px;
-  border-radius: 14px; 
+  border-radius: 14px;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
@@ -427,142 +434,531 @@ body {
 .brand-text h1 {
   margin: 0 0 6px;
   font-size: 24px;
-  color: var(--text); 
+  color: var(--text);
   letter-spacing: 0.5px;
 }
 
 .brand-text p {
   margin: 0;
-  color: var(--text-2); 
+  color: var(--text-2);
   font-size: 13.5px;
 }
 
 .brand-tag {
-  margin-left: auto; 
-  flex-shrink: 0; 
-  font-size: 12px; 
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
   padding: 5px 12px;
   border-radius: 20px;
-  background: rgba(3, 105, 161, 0.08); 
-  color: var(--primary); 
+  background: rgba(3, 105, 161, 0.08);
+  color: var(--primary);
   border: 1px solid rgba(3, 105, 161, 0.2);
 }
 
 /* ===== 视图切换 Tab ===== */
-.view-tabs { display: flex; gap: 8px; margin-bottom: 18px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 5px; }
-.view-tab { flex: 1; padding: 10px 0; border: none; background: transparent; border-radius: 9px; font-size: 14.5px; color: var(--text-2); cursor: pointer; font-weight: 500; transition: all 0.2s; font-family: inherit; }
-.view-tab.on { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(3, 105, 161, 0.25); }
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 5px;
+}
+
+.view-tab {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 14.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.view-tab.on {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(3, 105, 161, 0.25);
+}
 
 /* ===== 卡片面板 ===== */
-.panel { border: 1px solid var(--border); border-radius: 14px; margin-bottom: 18px; }
-.panel :deep(.el-card__body) { padding: 22px 26px; }
-.steps { padding: 4px 0 2px; }
-.steps :deep(.el-step__title.is-process) { color: var(--primary); font-weight: 600; }
-.steps :deep(.el-step__head.is-process) { color: var(--primary); border-color: var(--primary); }
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+
+.panel :deep(.el-card__body) {
+  padding: 22px 26px;
+}
+
+.steps {
+  padding: 4px 0 2px;
+}
+
+.steps :deep(.el-step__title.is-process) {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.steps :deep(.el-step__head.is-process) {
+  color: var(--primary);
+  border-color: var(--primary);
+}
 
 /* ===== 表单区 ===== */
-.form-head { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
-.form-badge {
-  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-  background: var(--primary); color: #fff; font-size: 18px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+.form-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
 }
-.form-head h2 { margin: 0 0 3px; font-size: 19px; color: var(--text); }
-.form-head p { margin: 0; font-size: 13px; color: var(--text-3); }
 
-.field-label { color: var(--text-2); font-weight: 500; }
-.field-label.label-danger { color: var(--danger); font-weight: 600; }
-.req { color: var(--danger); margin-right: 3px; }
-.field-wrap { width: 100%; }
-.ctrl { width: 240px; }
-.ctrl-text { width: 380px; }
+.form-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: var(--primary);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-head h2 {
+  margin: 0 0 3px;
+  font-size: 19px;
+  color: var(--text);
+}
+
+.form-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.field-label {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.field-label.label-danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.req {
+  color: var(--danger);
+  margin-right: 3px;
+}
+
+.field-wrap {
+  width: 100%;
+}
+
+.ctrl {
+  width: 240px;
+}
+
+.ctrl-text {
+  width: 380px;
+}
 
 /* 胶囊选择按钮 */
-.option-group { display: flex; flex-wrap: wrap; gap: 9px; }
-.opt { position: relative; }
-.opt input { position: absolute; opacity: 0; pointer-events: none; }
-.opt span {
-  display: inline-block; padding: 8px 17px; border: 1px solid var(--border);
-  border-radius: 9px; font-size: 13.5px; color: var(--text-2); cursor: pointer;
-  background: #fff; transition: all 0.15s; user-select: none; line-height: 1.5;
+.option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
 }
-.opt:hover span { border-color: var(--primary); }
-.opt input:checked + span { background: var(--primary-50); border-color: var(--primary); color: var(--primary); font-weight: 600; }
-.opt input:checked + span::after { content: ' ✓'; }
-.opt input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
-/* 红色胶囊（出血征象严重项） */
-.opt.danger span { color: var(--danger); border-color: #fecaca; }
-.opt.danger input:checked + span { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); font-weight: 600; }
-.opt-sm span { padding: 5px 12px; font-size: 12.5px; }
 
-.field-note { margin: 6px 0 0; color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
-.form :deep(.el-form-item) { margin-bottom: 20px; }
+.opt {
+  position: relative;
+}
+
+.opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.opt span {
+  display: inline-block;
+  padding: 8px 17px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.15s;
+  user-select: none;
+  line-height: 1.5;
+}
+
+.opt:hover span {
+  border-color: var(--primary);
+}
+
+.opt input:checked+span {
+  background: var(--primary-50);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.opt input:checked+span::after {
+  content: ' ✓';
+}
+
+.opt input:focus-visible+span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 红色胶囊（出血征象严重项） */
+.opt.danger span {
+  color: var(--danger);
+  border-color: #fecaca;
+}
+
+.opt.danger input:checked+span {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.opt-sm span {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+.field-note {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.form :deep(.el-form-item) {
+  margin-bottom: 20px;
+}
 
 /* 界面 3 · 拍照提示条 */
 .section-tip {
-  display: flex; align-items: center; gap: 8px; padding: 11px 15px; margin-bottom: 18px;
-  background: rgba(3, 105, 161, 0.06); color: var(--primary); border: 1px solid rgba(3, 105, 161, 0.18);
-  border-radius: 9px; font-size: 13px; line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 15px;
+  margin-bottom: 18px;
+  background: rgba(3, 105, 161, 0.06);
+  color: var(--primary);
+  border: 1px solid rgba(3, 105, 161, 0.18);
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* 界面 3 · 检查卡片 */
-.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.exam-card { border: 1px solid var(--border); border-radius: 11px; padding: 14px 15px; background: #fff; }
-.exam-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px dashed var(--border); }
-.exam-title { font-size: 15px; font-weight: 600; color: var(--text); }
-.exam-items { display: block; font-size: 12px; color: var(--text-3); font-weight: 400; margin-top: 2px; }
-.exam-body { display: flex; flex-direction: column; gap: 10px; }
-.exam-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.exam-field .option-group { justify-content: flex-end; }
-.exam-label { font-size: 13px; color: var(--text-2); flex-shrink: 0; }
-.ctrl-sm { width: 150px; }
+.exam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.exam-card {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 14px 15px;
+  background: #fff;
+}
+
+.exam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.exam-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.exam-items {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.exam-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exam-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.exam-field .option-group {
+  justify-content: flex-end;
+}
+
+.exam-label {
+  font-size: 13px;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.ctrl-sm {
+  width: 150px;
+}
 
 /* 界面 4 · 抗血小板表 */
-.ap-block { margin-bottom: 22px; }
-.ap-title { margin: 0 0 6px; font-size: 15.5px; color: var(--text); }
-.ap-sub { margin: 0 0 12px; font-size: 12.5px; color: var(--text-3); }
-.ap-table { margin-bottom: 20px; }
-.ap-table :deep(.el-input-number) { width: 140px; }
-.ap-name { font-weight: 600; color: var(--text); }
-.ap-std { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.ap-block {
+  margin-bottom: 22px;
+}
+
+.ap-title {
+  margin: 0 0 6px;
+  font-size: 15.5px;
+  color: var(--text);
+}
+
+.ap-sub {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.ap-table {
+  margin-bottom: 20px;
+}
+
+.ap-table :deep(.el-input-number) {
+  width: 140px;
+}
+
+.ap-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ap-std {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
 
 /* 界面 4 · 用药折叠 */
-.med-collapse { border: 1px solid var(--border); border-radius: 11px; }
-.med-collapse :deep(.el-collapse-item__header) { padding: 0 16px; height: auto; min-height: 52px; }
-.med-collapse :deep(.el-collapse-item__content) { padding-bottom: 14px; }
-.med-name { font-size: 15px; font-weight: 600; color: var(--text); margin-right: 12px; }
-.med-desc { font-size: 12.5px; color: var(--text-3); }
-.med-body { padding: 4px 16px 0; }
-.med-subtitle { font-size: 13px; color: var(--text-2); font-weight: 500; margin: 14px 0 8px; }
+.med-collapse {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
 
-.nav { display: flex; justify-content: center; gap: 14px; margin-top: 26px; }
-.btn-icon { margin-right: 5px; vertical-align: -2px; }
-.hint { text-align: center; color: var(--text-3); font-size: 12.5px; margin: 16px 0 0; }
+.med-collapse :deep(.el-collapse-item__header) {
+  padding: 0 16px;
+  height: auto;
+  min-height: 52px;
+}
+
+.med-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 14px;
+}
+
+.med-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-right: 12px;
+}
+
+.med-desc {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.med-body {
+  padding: 4px 16px 0;
+}
+
+.med-subtitle {
+  font-size: 13px;
+  color: var(--text-2);
+  font-weight: 500;
+  margin: 14px 0 8px;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.btn-icon {
+  margin-right: 5px;
+  vertical-align: -2px;
+}
+
+.hint {
+  text-align: center;
+  color: var(--text-3);
+  font-size: 12.5px;
+  margin: 16px 0 0;
+}
 
 /* ===== 结果区 ===== */
-.result-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
-.result-head h2 { margin: 0; font-size: 20px; color: var(--text); }
-.tag-chip { font-size: 12px; padding: 4px 12px; border-radius: 16px; margin-left: 8px; background: rgba(217, 119, 6, 0.1); color: var(--warning); border: 1px solid rgba(217, 119, 6, 0.25); }
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
 
-.redline-item { background: var(--danger-bg); border: 1px solid #fecaca; border-left: 4px solid var(--danger); border-radius: 10px; padding: 15px 18px; margin-bottom: 14px; }
-.redline-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.redline-title { font-weight: 700; color: var(--danger); font-size: 15.5px; }
-.redline-action { margin: 0; color: #7f1d1d; line-height: 1.7; font-size: 14.5px; }
+.result-head h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text);
+}
 
-.advice-item { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; transition: box-shadow 0.2s; }
-.advice-item:hover { box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06); }
-.advice-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
-.advice-id { font-weight: 700; color: var(--primary); font-size: 14.5px; }
-.advice-text { margin: 0 0 8px; color: var(--text); line-height: 1.7; font-size: 14.5px; }
-.advice-src { margin: 0; color: var(--text-3); font-size: 12.5px; display: flex; align-items: center; gap: 4px; }
+.tag-chip {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  margin-left: 8px;
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--warning);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
 
-.disclaimer { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--text-3); font-size: 12.5px; margin: 24px 0 6px; }
+.redline-item {
+  background: var(--danger-bg);
+  border: 1px solid #fecaca;
+  border-left: 4px solid var(--danger);
+  border-radius: 10px;
+  padding: 15px 18px;
+  margin-bottom: 14px;
+}
+
+.redline-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.redline-title {
+  font-weight: 700;
+  color: var(--danger);
+  font-size: 15.5px;
+}
+
+.redline-action {
+  margin: 0;
+  color: #7f1d1d;
+  line-height: 1.7;
+  font-size: 14.5px;
+}
+
+.advice-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s;
+}
+
+.advice-item:hover {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+}
+
+.advice-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+
+.advice-id {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 14.5px;
+}
+
+.advice-text {
+  margin: 0 0 8px;
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 14.5px;
+}
+
+.advice-src {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.disclaimer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  margin: 24px 0 6px;
+}
 
 @media (max-width: 640px) {
-  .brand-tag { display: none; }
-  .form :deep(.el-form-item__label) { width: 100% !important; text-align: left; }
-  .ctrl, .ctrl-text { width: 100%; }
-  .exam-grid { grid-template-columns: 1fr; }
-  .med-desc { display: none; }
+  .brand-tag {
+    display: none;
+  }
+
+  .form :deep(.el-form-item__label) {
+    width: 100% !important;
+    text-align: left;
+  }
+
+  .ctrl,
+  .ctrl-text {
+    width: 100%;
+  }
+
+  .exam-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .med-desc {
+    display: none;
+  }
 }
 </style>
