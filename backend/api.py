@@ -113,7 +113,7 @@ def chat(payload: dict = Body(...)):
 
 # ================= 前端托管（局域网/单端口） =================
 # 前端已构建时，FastAPI 直接托管 dist：其他电脑只访问 http://<本机IP>:8000 即可，
-# 不再需要 5173 的 Vite。API 路由都在这个 mount 之前注册，优先级更高。
+# API 路由都在这个 mount 之前注册，优先级更高。
 if (DIST / "index.html").is_file():
     app.mount("/", StaticFiles(directory=str(DIST), html=True), name="web")
 else:
