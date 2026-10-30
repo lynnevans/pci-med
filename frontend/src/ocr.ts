@@ -270,11 +270,19 @@ export async function requestOcr(
   cardHint: string,
   signal?: AbortSignal,
 ): Promise<OcrApiResult> {
+  //超时90秒
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 90000);
+   // 2. 将外部传入的 signal 和内部超时 signal 合并
+  const combinedSignal = signal 
+    ? AbortSignal.any([signal, timeoutController.signal]) 
+    : timeoutController.signal;
+  try {
   const resp = await fetch('/api/ocr', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image_base64: prepared.base64, card_hint: cardHint }),
-    signal,
+    signal: combinedSignal,
   })
   if (resp.status === 413) throw new Error('图片过大被服务器拒绝，请压缩后重试')
   if (!resp.ok) {
@@ -282,4 +290,14 @@ export async function requestOcr(
     throw new Error(`接口返回 ${resp.status}${text ? '：' + text.slice(0, 120) : ''}`)
   }
   return (await resp.json()) as OcrApiResult
+  } catch (error: any) {
+    // 3. 捕获超时错误并抛出友好提示
+    if (error.name === 'AbortError') {
+      throw new Error('识别超时（90秒），可能是网络波动或图片过大，请重试该图');
+    }
+    throw error;
+  } finally {
+    // 4. 清理定时器
+    clearTimeout(timeoutId);
+  }
 }
