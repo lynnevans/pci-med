@@ -10,6 +10,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ChatView from './ChatView.vue'
+import OcrDialog from './components/OcrDialog.vue'
 
 // ==================== 类型定义 ====================
 type FieldType = 'number' | 'boolean' | 'date' | 'select' | 'text' | 'multi'
@@ -80,8 +81,15 @@ interface Redline {
   action: string
 }
 
+interface CriticalValue {
+  id: string
+  name: string
+  action: string
+}
+
 interface AnalyzeResult {
   tags: Record<string, boolean>
+  critical?: CriticalValue[]
   redlines: Redline[]
   advices: Advice[]
   disclaimer?: string
@@ -158,12 +166,27 @@ const examCards: ExamCard[] = [
     { key: 'fbg_status', label: '空腹血糖', type: 'status', options: ['正常', '高', '低'] },
     { key: 'hba1c', label: '糖化血红蛋白', type: 'number', unit: '%' },
   ]},
-  { name: '十二导联心电图', items: 'ST-T / 心律失常', fields: [
+  { name: '十二导联心电图', items: 'ST-T / 心律失常 / 心率 / QTc', fields: [
     { key: 'sinus_rhythm', label: '窦性心律', type: 'bool' },
+    { key: 'heart_rate', label: '心率', type: 'number', unit: '次/分' },
+    { key: 'qtc', label: 'QTc', type: 'number', unit: 'ms' },
+    { key: 'qtc_baseline', label: '基线 QTc（既往）', type: 'number', unit: 'ms' },
   ]},
   { name: '超声心动图', items: 'EF / 室壁瘤 / 室壁运动', fields: [
     { key: 'lvef', label: 'LVEF', type: 'number', unit: '%' },
     { key: 'wall_abnormality', label: '室壁瘤/室壁运动异常', type: 'bool' },
+  ]},
+  // 危急值数值：rule_engine.CRITICAL_VALUES 用原始数值判定；选填，不填不影响用药规则
+  { name: '危急值数值', items: '仅用于危急值阈值判定（选填）', fields: [
+    { key: 'hb', label: '血红蛋白 Hb', type: 'number', unit: 'g/L' },
+    { key: 'plt', label: '血小板 PLT', type: 'number', unit: '×10^9/L' },
+    { key: 'potassium', label: '血钾 K⁺', type: 'number', unit: 'mmol/L' },
+    { key: 'sodium', label: '血钠 Na⁺', type: 'number', unit: 'mmol/L' },
+    { key: 'inr', label: 'INR', type: 'number', unit: '' },
+    { key: 'fibrinogen', label: '纤维蛋白原 Fib', type: 'number', unit: 'g/L' },
+    { key: 'hs_ctnt', label: '高敏肌钙蛋白 T hs-cTnT', type: 'number', unit: 'ng/mL' },
+    { key: 'co2cp', label: '二氧化碳结合率 CO₂CP', type: 'number', unit: 'mmol/L' },
+    { key: 'baseline_scr', label: '基线肌酐（48–72h 前）', type: 'number', unit: 'μmol/L' },
   ]},
 ]
 
@@ -265,6 +288,9 @@ const currentStep = ref<number>(0)
 const loading = ref<boolean>(false)
 const result = ref<AnalyzeResult | null>(null)
 const errorMsg = ref<string>('')
+// OCR 对话框：ocrHint 为当前卡片名（空串表示整张化验单）
+const ocrVisible = ref<boolean>(false)
+const ocrHint = ref<string>('')
 
 const currentFields = computed<Field[]>(() => {
   if (currentStep.value === 0) return step1Fields
@@ -422,7 +448,10 @@ function buildPayload(): Record<string, any> {
     if (!v || v === '未使用') continue
     const m = singleMap[g.key]
     if (g.key === 'ppi') p['ppi'] = v
-    else {
+    else if (g.key === 'noac' && v === '华法林') {
+      // 华法林不是 NOAC：只置 on_warfarin（危急值 CV-07 依赖），不置 on_noac
+      p['on_warfarin'] = true
+    } else {
       p[m.on] = true
       p[m.type] = g.key === 'ccb' ? CCB_TYPE[v] : v
     }
@@ -449,6 +478,7 @@ function buildPayload(): Record<string, any> {
 
   // ---------- 界面 5：症状/出血翻译 + 直接字段 ----------
   if ((form.symptoms || []).length) p['red_flag'] = true
+  if ((form.symptoms || []).includes('胸痛')) p['chest_pain'] = true   // 危急值 CV-11 需要
   for (const a of (form.adr || []) as string[]) if (ADR_MAP[a]) p[ADR_MAP[a]] = true
   for (const b of (form.bleeding || []) as string[]) {
     if (BLEED_MILD.includes(b)) p['mild_bleed'] = true
@@ -526,8 +556,18 @@ const activeTags = computed<string[]>(() => {
 const levelType = (level: string): 'success' | 'warning' =>
   level === '审核级' ? 'warning' : 'success'
 
-function onCamera(): void {
-  ElMessage.info('拍照 OCR 识别开发中，请先按本实验室参考范围手动录入异常值')
+function openOcr(card = ''): void {
+  ocrHint.value = card
+  ocrVisible.value = true
+}
+
+// OCR 对话框确认后：把后端「已映射」的字段写回表单
+function applyOcr(payload: { patch: Record<string, any>; labels: string[] }): void {
+  Object.assign(form, payload.patch)
+  const shown = payload.labels.slice(0, 6).join('、')
+  const more = payload.labels.length > 6 ? ` 等 ${payload.labels.length} 项` : ''
+  ElMessage.success(`已回填 ${payload.labels.length} 项：${shown}${more}`)
+  ocrVisible.value = false
 }
 </script>
 
@@ -606,13 +646,14 @@ function onCamera(): void {
         <div v-else-if="currentStep === 2">
           <div class="section-tip">
             <el-icon :size="15"><Camera /></el-icon>
-            辅助检查异常判定：请按「本实验室参考范围」判断升高/正常/降低。第一期支持手动录入，拍照 OCR 识别开发中，失败可回落手动，不阻塞主流程。
+            辅助检查异常判定：请按「本实验室参考范围」判断升高/正常/降低。可拍照或上传化验单自动回填，识别失败仍可手动录入，不阻塞主流程。
+            <el-button size="small" type="primary" plain class="ocr-any" @click="openOcr('')">上传整张化验单</el-button>
           </div>
           <div class="exam-grid">
-            <div v-for="c in examCards" :key="c.name" class="exam-card">
+            <div v-for="c in examCards" :key="c.name" :class="['exam-card', { 'exam-card-wide': c.name === '危急值数值' }]">
               <div class="exam-head">
                 <div class="exam-title">{{ c.name }}<span class="exam-items">{{ c.items }}</span></div>
-                <el-button size="small" text type="primary" @click="onCamera"><el-icon :size="14"><Camera /></el-icon>拍照识别</el-button>
+                <el-button v-if="c.name !== '十二导联心电图'" size="small" text type="primary" @click="openOcr(c.name)"><el-icon :size="14"><Camera /></el-icon>拍照识别</el-button>
               </div>
               <div class="exam-body">
                 <div v-for="f in c.fields" :key="f.key" class="exam-field">
@@ -748,6 +789,17 @@ function onCamera(): void {
           </div>
         </div>
 
+        <!-- 危急值：最高优先级；命中时后端已不再输出常规建议 -->
+        <div v-if="result.critical && result.critical.length" class="critical-list">
+          <div v-for="c in result.critical" :key="c.id" class="critical-item">
+            <div class="critical-head">
+              <el-icon :size="22" color="#fff"><WarningFilled /></el-icon>
+              <span class="critical-title">【危急值 {{ c.id }}】{{ c.name }}</span>
+            </div>
+            <p class="critical-action">{{ c.action }}</p>
+          </div>
+        </div>
+
         <div v-if="result.redlines && result.redlines.length" class="redline-list">
           <div v-for="r in result.redlines" :key="r.id" class="redline-item">
             <div class="redline-head">
@@ -758,7 +810,7 @@ function onCamera(): void {
           </div>
         </div>
 
-        <div v-else class="advice-list">
+        <div v-else-if="!result.critical || result.critical.length === 0" class="advice-list">
           <template v-if="result.advices && result.advices.length">
             <div class="advice-item" v-for="a in result.advices" :key="a.id">
               <div class="advice-head">
@@ -781,6 +833,9 @@ function onCamera(): void {
       </el-card>
     </template>
     </template>
+
+    <!-- ===== 化验单识别对话框（拍照/上传 → 核对 → 回填） ===== -->
+    <OcrDialog v-model="ocrVisible" :card-hint="ocrHint" :current="form" @apply="applyOcr" />
   </div>
 </template>
 
@@ -875,8 +930,9 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
 .section-tip {
   display: flex; align-items: center; gap: 8px; padding: 11px 15px; margin-bottom: 18px;
   background: rgba(3, 105, 161, 0.06); color: var(--primary); border: 1px solid rgba(3, 105, 161, 0.18);
-  border-radius: 9px; font-size: 13px; line-height: 1.6;
+  border-radius: 9px; font-size: 13px; line-height: 1.6; flex-wrap: wrap;
 }
+.ocr-any { margin-left: auto; flex-shrink: 0; }
 
 /* 界面 3 · 检查卡片 */
 .exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
@@ -889,6 +945,12 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
 .exam-field .option-group { justify-content: flex-end; }
 .exam-label { font-size: 13px; color: var(--text-2); flex-shrink: 0; }
 .ctrl-sm { width: 150px; }
+
+/* 危急值数值：整行宽卡 + 两列；标签在上、输入框占满列宽，避免 9 个数字框挤在 280px 单列里 */
+.exam-card-wide { grid-column: 1 / -1; }
+.exam-card-wide .exam-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 26px; }
+.exam-card-wide .exam-field { flex-direction: column; align-items: stretch; gap: 6px; }
+.exam-card-wide .ctrl-sm { width: 100%; }
 
 /* 界面 4 · 抗血小板表 */
 .ap-block { margin-bottom: 22px; }
@@ -922,6 +984,12 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
 .redline-title { font-weight: 700; color: var(--danger); font-size: 15.5px; }
 .redline-action { margin: 0; color: #7f1d1d; line-height: 1.7; font-size: 14.5px; }
 
+.critical-list { margin-bottom: 16px; }
+.critical-item { background: linear-gradient(135deg, #991b1b, #b91c1c); border: 1px solid #7f1d1d; border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; color: #fff; box-shadow: 0 6px 18px rgba(153, 27, 27, 0.18); }
+.critical-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.critical-title { font-weight: 700; font-size: 16.5px; letter-spacing: 0.3px; }
+.critical-action { margin: 0; line-height: 1.75; font-size: 14.5px; color: #fee2e2; }
+
 .advice-item { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; transition: box-shadow 0.2s; }
 .advice-item:hover { box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06); }
 .advice-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
@@ -936,6 +1004,8 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
   .form :deep(.el-form-item__label) { width: 100% !important; text-align: left; }
   .ctrl, .ctrl-text { width: 100%; }
   .exam-grid { grid-template-columns: 1fr; }
+  .exam-card-wide .exam-body { grid-template-columns: 1fr; }
+  .exam-card-wide .ctrl-sm { width: 100%; }
   .med-desc { display: none; }
 }
 </style>
