@@ -71,8 +71,14 @@ def retrieve(question):
 # ---------- 5. 调 DeepSeek ----------
 from openai import OpenAI
 
-llm = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
-MODEL = "deepseek-v4-pro"
+# 修改为百炼的配置
+llm = OpenAI(
+    api_key="sk-ws-H.YIIRXIY.5Ccv.MEUCIB3S8N9Pjo0N_npno2xEuriY_PCw1YukoHD99klvBGi0AiEA_hDW0kxkX5arYlMjuDOopg0MZqgC74dkNlQu72wCibE", 
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"  # 华北2（北京）地域的通用 Base URL
+)
+
+# 使用你刚才在免费额度列表里看到的模型 Code，例如：
+MODEL = "qwen-plus"  # 或者 "qwen-max" 等
 
 SYSTEM_PROMPT = """你是「PCI术后长期用药管理助手」。你的任务：基于下方【指南片段】正面回答医生的用药问题——先给出直接、明确的总结性答案，再用片段原文佐证，让医生可核对依据。
 

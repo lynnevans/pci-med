@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 PCI 术后用药管理 —— FastAPI 接口
-- POST /api/analyze：规则引擎（确定性结论，零自由发挥）
-- POST /api/chat：RAG 摘录式问答（流式 SSE，指南溯源）
-- POST /api/ocr：化验单识别（qwen3-vl-plus 视觉识别，返回结构化字段）
-
-运行（backend 目录、venv 激活下）：
-    uvicorn api:app --reload
+- POST /api/analyze：规则
+- POST /api/chat：RAG 问答
+- POST /api/ocr：化验单识别（qwen3-vl-plus 视觉识别）
 """
 import json
 
@@ -20,7 +17,7 @@ from ocr import ocr_from_base64
 
 app = FastAPI(title="PCI 术后用药管理助手", version="0.4")
 
-# 允许前端（Vite 5173）跨域调用；比赛演示放开，生产再收紧来源
+# 允许前端（Vite 5173）跨域调用
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +43,8 @@ def analyze(payload: dict = Body(...)):
 
 @app.post("/api/ocr")
 def ocr(payload: dict = Body(...)):
-    """化验单识别。入参 {"image_base64": "...", "card_hint": "血脂"}，返回 {"items": [...], "remark": "..."}。"""
+    """化验单识别。入参 {"image_base64": "...", "card_hint": "血脂"}，
+    返回 {"items": [...], "remark": "..."}。"""
     img = payload.get("image_base64", "")
     if not img:
         return {"error": "image_base64 为空"}
