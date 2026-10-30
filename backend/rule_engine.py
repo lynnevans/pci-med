@@ -213,65 +213,71 @@ REDLINES = [
      "action": "红线：颅内出血史或近期致命性出血，基层不输出抗栓再启动建议，方案由上级专科制定。"},
     {"id": "LB-02", "name": "肝酶重度升高/黄疸",
      "cond": lambda x: (x.get("alt_ast_status") == "重度升高") or x.get("jaundice") or x.get("coag_abnormal"),
-     "action": "红线：ALT/AST>3倍正常上限或伴黄疸/凝血异常，暂停他汀，触发严重肝损伤转诊指征。"},
+     "action": "红线：ALT/AST>5倍正常上限或伴黄疸/凝血异常，暂停他汀，触发严重肝损伤转诊指征。"},
     {"id": "LB-04", "name": "肌酶重度升高",
      "cond": lambda x: (x.get("ck_status") == "重度升高") or x.get("brown_urine"),
      "action": "红线：CK>10倍正常上限或褐色尿，立即停他汀，触发横纹肌溶解转诊指征。"},
     {"id": "LB-05", "name": "严重血小板减少",
-     "cond": lambda x: (x.get("plt_status") == "降低") or x.get("plt_drop_over_50pct"),
+     "cond": lambda x: (x.get("plt") is not None and x.get("plt") < 50) or x.get("plt_drop_over_50pct")
+                        or (x.get("plt") is None and x.get("plt_status") == "降低"),
      "action": "红线：PLT<50或较基线下降>50%，疑HIT/DIT，停肝素类，触发严重血小板减少转诊指征。"},
 ]
 
 
-# ================= 危急值库（12 项，出现即刻处理，优先级最高） =================
-# 说明：危急值用「数值字段」判读，独立于上方的「状态化」用药规则（零自由发挥，阈值与动作照 LF1234 表1 原文）。
+# ================= 危急值库（13 项，出现即刻处理，优先级最高） =================
+# 说明：危急值用「数值字段」判读，独立于上方的「状态化」用药规则。
+# 前八类阈值按《分析结果报告输出模板 V1.0》统一；其余为既有扩展监测项。
 # 危急值监视字段（OCR/录入追加，仅供本模块报警，不参与 RULES 推理）：
 #   potassium 血钾(mmol/L) / sodium 血钠(mmol/L) / calcium_corrected 校正钙(mmol/L)
 #   heart_rate 心率(次/分) / qtc QTc(ms) / qtc_baseline 基线QTc(ms)
 #   hs_ctnt 高敏肌钙蛋白T(ng/mL) / chest_pain 胸痛(bool)
 #   inr INR / on_warfarin 用华法林(bool) / fibrinogen 纤维蛋白原(g/L)
 #   co2cp 二氧化碳结合率(mmol/L) / baseline_scr 基线肌酐(μmol/L) / hb_prev 24h前血红蛋白(g/L)
-# 复用现有字段：hb / plt / scr
+#   fpg 空腹血糖(mmol/L)
+# 复用现有字段：hb / plt / scr / plt_drop_over_50pct
 CRITICAL_VALUES = [
     {"id": "CV-01", "name": "血钾危急值",
-     "cond": lambda x: x.get("potassium") is not None and (x["potassium"] < 3.0 or x["potassium"] > 6.0),
-     "action": "危急值：血钾 <3.0 或 >6.0 mmol/L。室速/室颤风险；心电监护，静脉补钾或降钾处理。"},
+     "cond": lambda x: x.get("potassium") is not None and (x["potassium"] <= 2.5 or x["potassium"] >= 6.5),
+     "action": "危急值：血钾 ≤2.5 或 ≥6.5 mmol/L。显著增加心律失常风险；立即复查确认并纠正诱因，处理后 4–6 小时复查。"},
     {"id": "CV-02", "name": "血钠危急值",
-     "cond": lambda x: x.get("sodium") is not None and (x["sodium"] < 120 or x["sodium"] > 160),
-     "action": "危急值：血钠 <120 或 >160 mmol/L。意识障碍、抽搐；缓慢纠正，避免渗透性脱髓鞘。"},
+     "cond": lambda x: x.get("sodium") is not None and (x["sodium"] <= 120 or x["sodium"] >= 160),
+     "action": "危急值：血钠 ≤120 或 ≥160 mmol/L。意识障碍、抽搐风险；立即复查并谨慎纠正，避免纠正过快。"},
     {"id": "CV-03", "name": "校正钙危急值",
      "cond": lambda x: x.get("calcium_corrected") is not None and (x["calcium_corrected"] < 1.9 or x["calcium_corrected"] > 2.9),
-     "action": "危急值：校正钙 <1.9 或 >2.9 mmol/L。手足搐搦、意识改变。"},
+     "action": "危急值：校正钙 <1.9 或 >2.9 mmol/L。手足搐搦、意识改变；立即复查并处理。"},
     {"id": "CV-04", "name": "血红蛋白危急值",
-     "cond": lambda x: (x.get("hb") is not None and x["hb"] < 70)
+     "cond": lambda x: (x.get("hb") is not None and x["hb"] < 60)
                         or (x.get("hb") is not None and x.get("hb_prev") is not None and x["hb_prev"] - x["hb"] > 20),
-     "action": "危急值：血红蛋白 <70 g/L，或 24 h 内下降 >20 g/L。活动性出血；输注红细胞、停抗栓药并查找出血点。"},
+     "action": "危急值：血红蛋白 <60 g/L，或 24 h 内下降 >20 g/L。警惕活动性出血；立即评估出血原因与抗栓方案。"},
     {"id": "CV-05", "name": "血小板危急值",
-     "cond": lambda x: x.get("plt") is not None and x["plt"] < 20,
-     "action": "危急值：血小板 <20×10^9/L。自发出血风险；停 DAPT，必要时输注。"},
+     "cond": lambda x: (x.get("plt") is not None and x["plt"] < 30) or x.get("plt_drop_over_50pct"),
+     "action": "危急值：血小板 <30×10⁹/L，或较基线下降 >50%。自发出血风险；立即复查并由专科评估抗栓方案。"},
     {"id": "CV-06", "name": "肌酐升高(AKI)危急值",
      "cond": lambda x: (x.get("scr") is not None and x.get("baseline_scr") is not None
-                        and (x["scr"] - x["baseline_scr"] >= 26.5 or x["scr"] >= 1.5 * x["baseline_scr"])),
-     "action": "危急值：肌酐 48–72 h 内升高 ≥26.5 µmol/L 或 ≥1.5× 基线。对比剂相关 AKI（KDIGO）；停肾毒性药、水化。"},
+                        and x["scr"] >= 1.5 * x["baseline_scr"]),
+     "action": "危急值：血肌酐较 48–72 h 基线上升 ≥50%。警惕急性肾损伤；立即复核肾功能并评估肾毒性药物。"},
     {"id": "CV-07", "name": "INR 危急值(华法林者)",
-     "cond": lambda x: x.get("on_warfarin") and x.get("inr") is not None and x["inr"] > 4.0,
-     "action": "危急值：INR >4.0（用华法林者）。停/减量华法林，必要时给维生素 K。"},
+     "cond": lambda x: x.get("on_warfarin") and x.get("inr") is not None and x["inr"] > 4.5,
+     "action": "危急值：INR >4.5（用华法林者）。出血风险升高；立即复查并由医师调整抗凝方案。"},
     {"id": "CV-08", "name": "纤维蛋白原危急值",
      "cond": lambda x: x.get("fibrinogen") is not None and x["fibrinogen"] < 1.0,
-     "action": "危急值：纤维蛋白原 <1.0 g/L。出血倾向；补充冷沉淀或纤维蛋白原。"},
+     "action": "危急值：纤维蛋白原 <1.0 g/L。出血倾向；立即复查并评估处理。"},
     {"id": "CV-09", "name": "QTc 危急值",
      "cond": lambda x: (x.get("qtc") is not None and x["qtc"] > 500)
                         or (x.get("qtc") is not None and x.get("qtc_baseline") is not None and x["qtc"] - x["qtc_baseline"] > 60),
-     "action": "危急值：QTc >500 ms，或较基线增加 >60 ms。尖端扭转型室速风险；停 QT 延长药、补钾镁。"},
+     "action": "危急值：QTc >500 ms，或较基线增加 >60 ms。尖端扭转型室速风险；立即复核心电图并评估 QT 延长药物。"},
     {"id": "CV-10", "name": "心率危急值",
      "cond": lambda x: x.get("heart_rate") is not None and (x["heart_rate"] < 40 or x["heart_rate"] > 130),
-     "action": "危急值：心率 <40 或 >130 次/分。严重传导阻滞或快速心律失常；查图、查血钾。"},
+     "action": "危急值：心率 <40 或 >130 次/分。严重传导阻滞或快速心律失常风险；立即复查心电图和电解质。"},
     {"id": "CV-11", "name": "hs-cTnT+胸痛危急值",
      "cond": lambda x: x.get("chest_pain") and x.get("hs_ctnt") is not None and x["hs_ctnt"] > 0.07,
-     "action": "危急值：hs-cTnT 升高 >5× 参考上限（>0.07 ng/mL）且伴胸痛。疑支架内血栓；急诊复查造影。"},
+     "action": "危急值：hs-cTnT >0.07 ng/mL 且伴胸痛。警惕急性心肌损伤；立即转诊评估。"},
     {"id": "CV-12", "name": "二氧化碳结合率危急值",
-     "cond": lambda x: x.get("co2cp") is not None and x["co2cp"] < 15,
-     "action": "危急值：二氧化碳结合率 <15 mmol/L。代谢性酸中毒；警惕乳酸酸中毒、肾功能恶化。"},
+     "cond": lambda x: x.get("co2cp") is not None and x["co2cp"] <= 10,
+     "action": "危急值：二氧化碳结合率 ≤10 mmol/L。警惕严重代谢性酸中毒；立即复查并评估病因。"},
+    {"id": "CV-13", "name": "血糖危急值",
+     "cond": lambda x: x.get("fpg") is not None and (x["fpg"] <= 2.8 or x["fpg"] >= 22.2),
+     "action": "危急值：空腹血糖 ≤2.8 或 ≥22.2 mmol/L。警惕严重低血糖或高血糖急症；立即复查血糖并处理。"},
 ]
 
 
@@ -309,10 +315,10 @@ RULES += [
      "action": "CCS 或替格瑞洛不耐受，P2Y12 用氯吡格雷。"},
     {"id": "AP-08", "domain": "抗血小板", "level": "常规", "source": "CN-01",
      "cond": lambda x: x.get("cyp2c19_loss"),
-     "action": "氯吡格雷抵抗（CYP2C19 功能缺失），换用替格瑞洛。"},
+     "action": "氯吡格雷不耐受/禁忌，由专科评估替代抗血小板方案。"},
     {"id": "AP-09", "domain": "抗血小板", "level": "常规", "source": "CN-01",
      "cond": lambda x: x.get("aspirin_intolerant"),
-     "action": "阿司匹林过敏/不耐受，用吲哚布芬替代。"},
+     "action": "阿司匹林不耐受/禁忌，由专科评估吲哚布芬等替代方案。"},
     {"id": "AP-10", "domain": "抗血小板", "level": "常规", "source": "CN-02/CN-03",
      "cond": lambda x: x.get("dapt_expired") and x.get("no_new_ischemia"),
      "action": "DAPT 期满且无新发缺血事件，转单药抗血小板长期维持（阿司匹林或 P2Y12 单药）。"},
@@ -450,7 +456,7 @@ RULES += [
      "cond": lambda x: x.get("miss_single_dose"),
      "action": "单次漏服抗血小板药/他汀，无需补双倍剂量，下一剂按原计划服用；记录漏服事件。"},
     {"id": "AD-02", "domain": "用药行为", "level": "审核级", "source": "CN-01/CN-07",
-     "cond": lambda x: (x.get("self_stop_days") or 0) >= 3,
+     "cond": lambda x: x.get("want_stop_antiplatelet") and (x.get("antiplatelet_stop_days") or 0) >= 3,
      "action": "自行停用抗血小板≥3天且无症状，立即恢复原方案；术后<12个月标记「事实性停药」，建议联系上级心内科确认。"},
     {"id": "AD-05", "domain": "用药行为", "level": "常规", "source": "CN-07",
      "cond": lambda x: x.get("blood_activating"),
@@ -602,7 +608,7 @@ def match(patient):
         "tags": tags,
         "critical": criticals,
         "redlines": [{"id": r["id"], "name": r["name"], "action": r["action"]} for r in hit_red],
-        "advices": [{"id": r["id"], "source": r["source"], "level": r["level"],
+        "advices": [{"id": r["id"], "domain": r["domain"], "source": r["source"], "level": r["level"],
                      "action": r["action"]} for r in hit_rules],
     }
 
