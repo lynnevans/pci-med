@@ -166,7 +166,7 @@ async function start(files: File[]): Promise<void> {
   const images = files.filter((file) => file.type.startsWith('image/'))
   const skipped: string[] = files
     .filter((file) => !file.type.startsWith('image/'))
-    .map((file) => `${file.name}（不是图片）`)
+    .map((file) => `${file.name}（非图片）`)
 
   if (!images.length) {
     ElMessage.error('请选择图片文件（JPG / PNG / WebP）')
