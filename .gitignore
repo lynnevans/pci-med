@@ -189,6 +189,7 @@ backend/text/
 backend/chunks/
 一级指南/
 二级指南/
+检验单-test/
 
 # 包
 node_modules/
@@ -200,3 +201,4 @@ dist/
 # 系统文件
 .DS_Store
 Thumbs.db
+backend/文本-修改意见/默认业务空间-apiKey-8335938.csv
