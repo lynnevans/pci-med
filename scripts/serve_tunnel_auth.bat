@@ -1,17 +1,16 @@
 @echo off
-chcp 65001 >nul
+setlocal
 cd /d "%~dp0.."
 
 echo ============================================================
-echo  PCI-MED 公网访问（带密码，Cloudflare / Pinggy）
+echo  PCI-MED public access (password protected)
 echo ============================================================
 echo.
-echo  这个窗口会先启动 8000 后端 + 认证代理，
-echo  然后显示一个 https://....trycloudflare.com 地址（没有则用 Pinggy）。
-echo  把地址、用户名、密码发给其他电脑即可，不需要同一 Wi-Fi。
+echo  This window starts backend:8000 + auth proxy, then a public HTTPS URL.
+echo  Send the URL, username and password to other computers.
+echo  No same Wi-Fi required.
 echo.
-echo  地址变化 / 断开后，重新双击本文件即可。
-echo  关闭窗口会停止本次启动的服务。
+echo  Close this window to stop the services started here.
 echo.
 
 where pwsh >nul 2>nul
@@ -21,5 +20,4 @@ if %errorlevel%==0 (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve_tunnel_auth.ps1"
 )
 
-echo.
 pause
