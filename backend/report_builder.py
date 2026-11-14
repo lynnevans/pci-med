@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from datetime import date, datetime, timedelta
 
 
 DISCLAIMER = "本报告由计算机辅助生成，仅供具有执业资质的医师临床参考，不构成诊断或处方；最终决策请结合患者实际情况与临床判断。危急值与红旗症状的处理请遵循本院危急值报告制度。"
@@ -86,13 +87,13 @@ CRITICAL_KEYS = {
 EXAM_CARD_FIELDS = {
     "cbc": {"hb", "hb_prev", "hb_low", "plt", "plt_status", "plt_drop_over_50pct", "wbc"},
     "urine": {"urine_protein", "brown_urine"},
-    "liver": {"alt", "ast", "bilirubin", "albumin", "alt_ast_status", "jaundice"},
+    "liver": {"alt", "ast", "alt_ast_status"},
     "renal": {"scr", "egfr"},
-    "coag": {"coag_abnormal", "pt", "aptt", "tt", "inr", "fibrinogen", "d_dimer"},
+    "coag": {"inr", "d_dimer"},
     "enzyme": {"ck_mb"},
     "troponin": {"troponin_value", "troponin_elevated", "hs_ctnt"},
     "potassium": {"potassium", "potassium_status"},
-    "lipid": {"baseline_ldl", "current_ldl", "tc", "tg", "hdl", "lipid_abnormal"},
+    "lipid": {"baseline_ldl", "current_ldl", "tc", "tg"},
     "glucose": {"fpg", "fbg_status", "hba1c"},
     "bnp": {"bnp", "bnp_state"},
     "ecg": {"st_t", "arrhythmia_type", "arrhythmia", "hr_abnormal", "heart_rate", "pr_interval", "qrs_duration"},
@@ -124,6 +125,25 @@ def _value(patient, key, unit=""):
     if value is None or value == "":
         return "未录入"
     return f"{value}{(' ' + unit) if unit else ''}"
+
+
+def _parse_day(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _add_months(day: date, months: int) -> date:
+    month = day.month - 1 + months
+    year = day.year + month // 12
+    month = month % 12 + 1
+    # 月末对齐：先取下个月 1 日再回退一天
+    first_next = date(year + (month == 12), 1 if month == 12 else month + 1, 1)
+    last_day = (first_next - timedelta(days=1)).day
+    return date(year, month, min(day.day, last_day))
 
 
 def _circled(index):
@@ -384,6 +404,28 @@ class ReportAssembler:
                 severity=severity, source=source, rule_id="LB-02" if redline else "LB-01" if advice else None,
             )
 
+        d_dimer = self.p.get("d_dimer")
+        if _number(d_dimer) and d_dimer > 0.5:
+            self.add_exam_attention(
+                "d_dimer", "D-二聚体升高",
+                f"D-二聚体 {d_dimer} mg/L；按本实验室参考范围判断。",
+                "提示凝血激活或血栓/出血相关过程，需结合症状、影像与抗栓方案判断。",
+                "结合胸痛、呼吸困难、出血表现与影像结果评估；不自行停用抗栓药。",
+                timeframe="本次随访；有急性症状时立即评估", severity="中度" if d_dimer > 2 else "轻度",
+                source="CN-07/CN-05",
+            )
+
+        inr = self.p.get("inr")
+        if _number(inr) and inr > 3.0 and "inr" not in self.critical_keys:
+            self.add_exam_attention(
+                "inr", "INR 升高",
+                f"INR {inr}；使用华法林：{'是' if self.p.get('on_warfarin') else '否/未录'}。",
+                "抗凝强度过高会增加出血风险，尤其合并抗血小板治疗时。",
+                "复核华法林剂量、依从性、饮食与相互作用；按医嘱调整并复查 INR。",
+                timeframe="本次随访；明显出血时立即急诊", severity="中度" if inr > 4 else "轻度",
+                source="CN-05/CN-07",
+            )
+
         egfr = self.p.get("egfr")
         if _number(egfr) and egfr < 90:
             severity = "重度" if egfr < 30 else "中度" if egfr < 60 else "轻度"
@@ -534,7 +576,7 @@ class ReportAssembler:
         if self.p.get("ckd") or self.p.get("egfr") is not None and self.p.get("egfr") < 60:
             add("慢性肾脏病", f"{self.p.get('ckd_stage') or '分期未录'} / eGFR {_value(self.p, 'egfr', 'ml/min/1.73m²')}", "影响 NOAC 选择与剂量、二甲双胍用量与造影计划。", "CN-05/CN-08")
         if self.p.get("hf"):
-            add("心力衰竭", f"分型 {self.p.get('hf_type') or '未录'}，EF {_value(self.p, 'lvef', '%')}", "决定 ACEI/ARB/ARNI、β 阻滞剂、SGLT2i 等改善预后药物评估。", "心衰指南")
+            add("慢性心力衰竭", f"分型 {self.p.get('hf_type') or '未录'}，EF {_value(self.p, 'lvef', '%')}", "决定 ACEI/ARB/ARNI、β 阻滞剂、SGLT2i 等改善预后药物评估。", "心衰指南")
         if self.p.get("af"):
             anticoag = _medication_text(self.medications, "抗凝")
             add("心房颤动", f"抗凝方案：{anticoag}", "抗凝与抗血小板联用方案及三联时长见第四部分。", "CN-05")
@@ -556,12 +598,37 @@ class ReportAssembler:
             add("颅内出血史", "有", "是抗栓方案的核心制约，处理优先级最高。", "CN-01/CN-07")
         if self.p.get("other_pmh"):
             add("其他既往史", str(self.p["other_pmh"]), "需由接诊医师核对与当前用药的相关性。", "CN")
+        if self.p.get("readmission"):
+            add(
+                "PCI 术后再住院",
+                f"{self.p.get('readmission_date') or '住院时间未录'}；原因：{self.p.get('readmission_reason') or '未录'}",
+                "再住院提示需复核缺血、出血、心衰或操作相关并发症，并据此调整本次方案。",
+                "CN",
+            )
         if self.p.get("other_drug_intolerances"):
             add("其他药物不耐受/禁忌", "、".join(self.p["other_drug_intolerances"]), "调整方案时应避用相关药物，并由医师选择替代方案。", "说明书")
         if self.p.get("triple_therapy"):
             duration = _value(self.p, "triple_therapy_months", "个月")
             estimated = "（按出院与当前均为三联、出院至今连续使用估算）" if self.p.get("triple_therapy_months_estimated") else ""
             add("当前三联抗栓", f"已叠加 {duration}{estimated}", "三联抗栓增加出血风险，需由专科定期评估降阶。", "CN-01/CN-07")
+        date_items = []
+        for key, label in (
+            ("c_hypertension_date", "高血压"),
+            ("c_af_date", "心房颤动"),
+            ("c_hf_date", "慢性心力衰竭"),
+            ("c_diabetes_date", "糖尿病"),
+            ("c_dyslipidemia_date", "高脂血症"),
+            ("c_copd_date", "COPD"),
+            ("c_asthma_date", "哮喘"),
+            ("c_liver_date", "肝功能异常"),
+            ("c_ckd_date", "慢性肾脏病"),
+            ("c_ich_date", "颅内出血"),
+            ("c_ulcer_date", "消化道溃疡/出血"),
+        ):
+            if self.p.get(key):
+                date_items.append(f"{label} {self.p[key]}")
+        if date_items:
+            add("合并症/既往史时间", "；".join(date_items), "用于判断病程长短与长期风险，不替代本次检查。", "CN")
         return rows
 
     def build_medication(self):
@@ -804,8 +871,23 @@ class ReportAssembler:
             if not any((x["item"], x["timing"]) == key for x in rows):
                 rows.append({"item": item, "timing": timing, "purpose": purpose, "source": self.source_label(source, "")})
 
-        if self.p.get("post_pci"):
-            add("血脂、肝肾功能、血常规、凝血", "PCI 术后 1/3/6/12 个月及此后按计划", "二级预防与用药安全随访")
+        months = self.p.get("post_pci_months")
+        current_month = int(months) if _number(months) else 0
+        surgery_day = _parse_day(self.p.get("surgery_date"))
+        target = "LDL-C <1.4 mmol/L" if self.p.get("ascvd_risk") == "超高危" else "LDL-C <1.8 mmol/L" if self.p.get("ascvd_risk") == "极高危" else "LDL-C 按危险分层目标"
+        nodes = [n for n in (1, 3, 6, 12, 18, 24, 36) if n > current_month][:4]
+        if not nodes and _number(months):
+            nodes = [current_month + 12]
+        for node in nodes:
+            if surgery_day:
+                timing = f"术后 {node} 个月（{_add_months(surgery_day, node).isoformat()}）"
+            else:
+                timing = f"术后 {node} 个月（手术日期未录，按术后月数排期）"
+            add(
+                "血脂、肝肾功能、血常规、凝血；血压、心率与症状",
+                timing,
+                f"二级预防与用药安全随访；{target}，血压 <130/80 mmHg",
+            )
         if any(x["id"] == "CV-01" for x in self.exam_critical):
             add("血钾、肾功能、心电图", "处理后 4–6 小时复查血钾；1 周后复查肾功能", "危急值确认与相关药物调整后监测", "TEMPLATE")
         if any(x["id"] in ("EXAM-hb", "CM-12") for x in self.exam_attention):
@@ -821,7 +903,7 @@ class ReportAssembler:
         if self.p.get("on_amiodarone"):
             add("甲状腺功能（TSH±T4）", "每 6 个月；心悸/消瘦/畏寒随时", "胺碘酮相关甲状腺不良反应监测", "CN-02")
         for advice in self.advices.values():
-            if advice["id"] == "FU-02":
+            if advice["id"] == "FU-02" and (not _number(months) or months < 6):
                 add("LDL-C", "术后 6 个月", "评估降脂达标情况", "CN-04")
             if advice["id"] == "XZ-02":
                 add("下转接续复查与红旗症状回执", "按下转方案", "确认上级方案连续执行", advice["source"])
@@ -887,7 +969,18 @@ class ReportAssembler:
                 continue
             seen.add(key)
             priority = max(1, min(3, int(item.get("priority", 2))))
-            levels[priority - 1].append({"number": "", "conclusion": item["conclusion"], "action": item["action"], "timeframe": item["timeframe"], "ref": item["ref"]})
+            levels[priority - 1].append({
+                "number": "",
+                "conclusion": item["conclusion"],
+                "action": item["action"],
+                "timeframe": item["timeframe"],
+                "ref": item["ref"],
+                "evidence": item.get("evidence", ""),
+                "current": item.get("current") or item.get("current_medication") or "",
+                "recommendation": item.get("recommendation") or item.get("target") or "",
+                "source": item.get("source", ""),
+                "severity": item.get("severity", ""),
+            })
         output = []
         titles = ("一级·立即处理（今天）", "二级·尽快门诊调整（1–2 周内）", "三级·长期管理（本次随访落实）")
         keys = ("primary", "secondary", "tertiary")

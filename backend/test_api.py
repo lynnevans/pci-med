@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """不依赖外部服务的 /api/analyze 接口测试。"""
 import unittest
+import uuid
 
 from fastapi.testclient import TestClient
 
@@ -25,6 +26,13 @@ class AnalyzeApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
+        # 业务 API 现在要求医生登录；测试用临时账号注册并保留 Cookie。
+        username = "test_" + uuid.uuid4().hex[:12]
+        response = cls.client.post(
+            "/api/auth/register",
+            json={"username": username, "password": "test123456", "display_name": "接口测试"},
+        )
+        assert response.status_code == 200, response.text
 
     def test_health(self):
         response = self.client.get("/api/health")

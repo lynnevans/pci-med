@@ -202,3 +202,10 @@ dist/
 .DS_Store
 Thumbs.db
 backend/文本-修改意见/默认业务空间-apiKey-8335938.csv
+
+# 医生账号数据库（本地会话，不入库）
+backend/users.db
+backend/users.db-*
+
+# 真实患者病历（如存在，禁止提交）
+backend/samples/真实病历/

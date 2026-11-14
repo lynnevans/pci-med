@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 import ReportItemCard from './ReportItemCard.vue'
 
@@ -60,20 +59,14 @@ interface ReportData {
 }
 
 const props = defineProps<{ report: ReportData }>()
-const tagText: Record<string, string> = { tag_br: '高出血风险', tag_ir: '高缺血风险', tag_el: '老年（≥75）' }
-const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText[tag] ?? tag))
 </script>
 
 <template>
   <div class="analysis-report">
     <div class="result-head">
       <div>
-        <p class="report-kicker">PCI 术后复诊 · 结构化分析报告</p>
-        <h2>分析结果报告</h2>
-      </div>
-      <div class="report-head-tags">
-        <span :class="['report-risk', `report-risk-${report.summary.risk_level}`]">{{ report.summary.risk_label }}</span>
-        <span v-for="tag in activeTags" :key="tag" class="tag-chip">{{ tag }}</span>
+        <p class="report-kicker">详细报告（补充） · 仅列出异常与待办</p>
+        <h2>异常、待办与依据明细</h2>
       </div>
     </div>
 
@@ -95,8 +88,8 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
       <div class="report-section-head"><span>02</span><h3>合并症与既往史</h3></div>
       <div v-if="report.comorbidity.length" class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>合并症/既往史</th><th>现状与控制情况</th><th>与本次用药的关联提示</th><th>依据</th></tr></thead>
-          <tbody><tr v-for="row in report.comorbidity" :key="row.name"><td><strong>{{ row.name }}</strong></td><td>{{ row.status }}</td><td>{{ row.association }}</td><td class="table-source">{{ row.source }}</td></tr></tbody>
+          <thead><tr><th>合并症/既往史</th><th>现状与控制情况</th><th>与本次用药的关联提示</th></tr></thead>
+          <tbody><tr v-for="row in report.comorbidity" :key="row.name"><td><strong>{{ row.name }}</strong></td><td>{{ row.status }}</td><td>{{ row.association }}</td></tr></tbody>
         </table>
       </div>
       <p v-else class="report-empty success">未报告合并症或既往史；本部分不作额外疾病推定。</p>
@@ -104,60 +97,46 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
 
     <section class="report-section">
       <div class="report-section-head"><span>03</span><h3>检查指标评估</h3></div>
-      <h4 class="report-subtitle danger">5.1 危急值</h4>
-      <ReportItemCard v-for="item in report.exam_critical" :key="item.ref" :item="item" />
+      <h4 class="report-subtitle danger">3.1 危急值</h4>
+      <ReportItemCard v-for="item in report.exam_critical" :key="item.conclusion" :item="item" />
       <p v-if="!report.exam_critical.length" class="report-empty success">已录入指标未触发危急值阈值。</p>
 
-      <h4 class="report-subtitle warning">5.2 需关注异常</h4>
-      <ReportItemCard v-for="item in report.exam_attention" :key="item.ref" :item="item" />
+      <h4 class="report-subtitle warning">3.2 需关注异常</h4>
+      <ReportItemCard v-for="item in report.exam_attention" :key="item.conclusion" :item="item" />
       <p v-if="!report.exam_attention.length" class="report-empty">未识别需关注异常；未录入项目见信息缺口。</p>
 
-      <el-collapse class="report-normal-collapse">
-        <el-collapse-item name="normal">
-          <template #title><span class="normal-title">5.3 正常指标确认（{{ report.exam_normal.count }} 项）</span></template>
-          <p class="normal-confirmation">{{ report.exam_normal.text }}</p>
-          <div v-if="report.exam_normal.items.length" class="normal-grid">
-            <span v-for="item in report.exam_normal.items" :key="item.name">{{ item.name }}：<strong>{{ item.value }}</strong></span>
-          </div>
-        </el-collapse-item>
-      </el-collapse>
-
-      <h4 class="report-subtitle muted">5.4 信息缺口</h4>
-      <div v-if="report.exam_gap.length" class="gap-list">
-        <div v-for="gap in report.exam_gap" :key="gap.missing" class="gap-item">
-          <strong>缺少{{ gap.missing }}</strong>
-          <p>{{ gap.impact }}</p>
-          <p>{{ gap.action }} <span>时限：{{ gap.timeframe }}</span></p>
-        </div>
-      </div>
+      <h4 class="report-subtitle muted">3.3 信息缺口</h4>
+      <ul v-if="report.exam_gap.length" class="gap-list">
+        <li v-for="gap in report.exam_gap" :key="gap.missing">缺少{{ gap.missing }}</li>
+      </ul>
       <p v-else class="report-empty">本次评估所需关键信息已录入。</p>
     </section>
 
     <section class="report-section">
       <div class="report-section-head"><span>04</span><h3>当前用药评估</h3></div>
-      <h4 class="report-subtitle">6.1 冠心病二级预防方案完整性</h4>
+      <h4 class="report-subtitle">4.1 冠心病二级预防方案完整性</h4>
       <div v-if="report.medication_gap.items.length" class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>评估项</th><th>患者现状</th><th>指南推荐</th><th>判定</th><th>动作与时限</th><th>依据</th></tr></thead>
-          <tbody><tr v-for="row in report.medication_gap.items" :key="row.ref"><td><strong>{{ row.item }}</strong><small>{{ row.ref }}</small></td><td>{{ row.current }}</td><td>{{ row.recommendation }}</td><td><span :class="row.decision.includes('缺口') || row.decision.includes('未达标') ? 'text-warning' : 'text-success'">{{ row.decision }}</span></td><td>{{ row.action }}<small>{{ row.timeframe }}</small></td><td class="table-source">{{ row.source }}</td></tr></tbody>
+          <thead><tr><th>评估项</th><th>患者现状</th><th>指南推荐</th><th>判定</th><th>动作与时限</th></tr></thead>
+          <tbody><tr v-for="row in report.medication_gap.items" :key="row.item + row.action"><td><strong>{{ row.item }}</strong></td><td>{{ row.current }}</td><td>{{ row.recommendation }}</td><td><span :class="row.decision.includes('缺口') || row.decision.includes('未达标') ? 'text-warning' : 'text-success'">{{ row.decision }}</span></td><td>{{ row.action }}<small>{{ row.timeframe }}</small></td></tr></tbody>
         </table>
       </div>
       <p class="report-inline-summary">{{ report.medication_gap.summary }}</p>
 
-      <h4 class="report-subtitle">6.2 药物与合并症的相互影响</h4>
-      <ReportItemCard v-for="item in report.drug_disease.items" :key="item.ref" :item="item" />
+      <h4 class="report-subtitle">4.2 药物与合并症的相互影响</h4>
+      <ReportItemCard v-for="item in report.drug_disease.items" :key="item.conclusion" :item="item" />
       <p v-if="!report.drug_disease.items.length" class="report-empty">未识别需调整的药病冲突；未录入信息不作安全推定。</p>
       <el-collapse v-if="report.drug_disease.synergy.length" class="report-normal-collapse">
         <el-collapse-item :title="`协同与常规管理（${report.drug_disease.synergy.length} 项）`" name="synergy">
-          <ReportItemCard v-for="item in report.drug_disease.synergy" :key="item.id" :item="item" />
+          <ReportItemCard v-for="item in report.drug_disease.synergy" :key="item.conclusion" :item="item" />
         </el-collapse-item>
       </el-collapse>
 
-      <h4 class="report-subtitle">6.3 用药调整建议清单</h4>
+      <h4 class="report-subtitle">4.3 用药调整建议清单</h4>
       <div v-if="report.adjust_plan.length" class="report-table-wrap">
         <table class="report-table adjust-table">
-          <thead><tr><th>优先级</th><th>当前用药</th><th>建议调整</th><th>理由</th><th>时限</th><th>依据</th></tr></thead>
-          <tbody><tr v-for="row in report.adjust_plan" :key="row.ref"><td><span class="priority-number">{{ row.priority_rank }}</span><small>{{ row.ref }}</small></td><td>{{ row.current_medication }}</td><td>{{ row.action }}</td><td>{{ row.reason }}<small>证据：{{ row.evidence }}</small></td><td>{{ row.timeframe }}</td><td class="table-source">{{ row.source }}</td></tr></tbody>
+          <thead><tr><th>优先级</th><th>当前用药</th><th>建议调整</th><th>理由</th><th>时限</th></tr></thead>
+          <tbody><tr v-for="row in report.adjust_plan" :key="row.action + row.current_medication"><td><span class="priority-number">{{ row.priority_rank }}</span></td><td>{{ row.current_medication }}</td><td>{{ row.action }}</td><td>{{ row.reason }}<small>证据：{{ row.evidence }}</small></td><td>{{ row.timeframe }}</td></tr></tbody>
         </table>
       </div>
       <p v-else class="report-empty">本次无需新增加药、换药、停药或调量建议。</p>
@@ -165,11 +144,11 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
 
     <section class="report-section">
       <div class="report-section-head"><span>05</span><h3>症状与用药行为影响评估</h3></div>
-      <h4 class="report-subtitle danger">7.1 症状评估</h4>
-      <ReportItemCard v-for="item in report.symptom_behavior.symptoms" :key="item.ref" :item="item" />
+      <h4 class="report-subtitle danger">5.1 症状评估</h4>
+      <ReportItemCard v-for="item in report.symptom_behavior.symptoms" :key="item.conclusion" :item="item" />
       <p v-if="report.symptom_behavior.confirmation" class="report-empty success">{{ report.symptom_behavior.confirmation }}</p>
-      <h4 class="report-subtitle">7.2 用药行为评估</h4>
-      <ReportItemCard v-for="item in report.symptom_behavior.behavior" :key="item.ref" :item="item" />
+      <h4 class="report-subtitle">5.2 用药行为评估</h4>
+      <ReportItemCard v-for="item in report.symptom_behavior.behavior" :key="item.conclusion" :item="item" />
       <p v-if="!report.symptom_behavior.behavior.length" class="report-empty success">未报告停药、漏服或其他高危用药行为。</p>
     </section>
 
@@ -181,7 +160,7 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
         <div v-if="level.items.length" class="action-list">
           <div v-for="item in level.items" :key="item.number" class="action-row">
             <strong>{{ item.number }}</strong>
-            <div><p>{{ item.conclusion }} <span>（见 {{ item.ref }}）</span></p><p>{{ item.action }}</p><small>{{ item.timeframe }}</small></div>
+            <div><p>{{ item.conclusion }}</p><p>{{ item.action }}</p><small>{{ item.timeframe }}</small></div>
           </div>
         </div>
         <p v-else class="report-empty">本级别无待办事项。</p>
@@ -192,8 +171,8 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
       <div class="report-section-head"><span>07</span><h3>随访与转诊建议</h3></div>
       <div v-if="report.followup.schedule.length" class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>复查项目</th><th>时间节点</th><th>目的</th><th>依据</th></tr></thead>
-          <tbody><tr v-for="row in report.followup.schedule" :key="row.item + row.timing"><td><strong>{{ row.item }}</strong></td><td>{{ row.timing }}</td><td>{{ row.purpose }}</td><td class="table-source">{{ row.source }}</td></tr></tbody>
+          <thead><tr><th>复查项目</th><th>时间节点</th><th>目的</th></tr></thead>
+          <tbody><tr v-for="row in report.followup.schedule" :key="row.item + row.timing"><td><strong>{{ row.item }}</strong></td><td>{{ row.timing }}</td><td>{{ row.purpose }}</td></tr></tbody>
         </table>
       </div>
       <h4 class="report-subtitle danger">转诊指征</h4>
@@ -203,9 +182,11 @@ const activeTags = computed(() => props.report.summary.tags.map((tag) => tagText
 
     <section class="report-section">
       <div class="report-section-head"><span>08</span><h3>依据与说明</h3></div>
-      <h4 class="report-subtitle">指南与出处清单</h4>
+      <h4 class="report-subtitle">指南与共识</h4>
       <ol class="reference-list">
-        <li v-for="source in report.references.sources" :key="source.code"><strong>{{ source.name }}</strong><span>来源编号：{{ source.code }}<template v-if="source.rules.length">；相关规则：{{ source.rules.join('、') }}</template></span></li>
+        <template v-for="source in report.references.sources" :key="source.name">
+          <li v-if="!source.name.includes('原始来源') && !source.name.includes('模板') && !source.name.includes('规则库')"><strong>{{ source.name }}</strong></li>
+        </template>
       </ol>
       <h4 class="report-subtitle">术语对照</h4>
       <div class="term-list"><span v-for="term in report.references.terms" :key="term.abbr" :title="term.full"><strong>{{ term.abbr }}</strong>{{ term.full }}</span></div>

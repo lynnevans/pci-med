@@ -4,6 +4,7 @@ PCI 术后用药管理 —— RAG 核心（bge-m3 检索 + DeepSeek 生成）
 供 FastAPI 调用。模型与向量库懒加载：首次问答时才加载 bge-m3（约几十秒），后端启动不卡。
 """
 from pathlib import Path
+import os
 
 from FlagEmbedding import BGEM3FlagModel
 import chromadb
@@ -29,7 +30,7 @@ def load_env():
 
 
 ENV = load_env()
-API_KEY = ENV.get("DEEPSEEK_API_KEY", "")
+API_KEY = ENV.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or "not-configured"
 
 MODEL_DIR = BASE / "models" / "bge-m3"
 DB_DIR = BASE / "vector_db"

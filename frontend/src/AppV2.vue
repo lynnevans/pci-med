@@ -12,6 +12,8 @@ import {
 import ChatView from './ChatView.vue'
 import OcrDialog from './components/OcrDialog.vue'
 import AnalysisReport from './components/AnalysisReport.vue'
+import ConciseReport from './components/ConciseReport.vue'
+import LoginView from './components/LoginView.vue'
 
 interface CriticalValue { id: string; name: string; action: string }
 interface Redline { id: string; name: string; action: string }
@@ -35,6 +37,7 @@ interface ExamField {
   unit?: string
   placeholder?: string
   default?: any
+  condition?: string
 }
 interface ExamCard { key: string; name: string; hint?: string; fields: ExamField[] }
 
@@ -47,7 +50,14 @@ interface ComorbField {
   placeholder?: string
   shared?: boolean
 }
-interface ComorbItem { key: string; label: string; hint?: string; sub?: ComorbField[] }
+interface ComorbItem {
+  key: string
+  label: string
+  hint?: string
+  sub?: ComorbField[]
+  dateKey?: string
+  dateLabel?: string
+}
 
 interface Drug { key: string; name: string; std?: string; stdValue?: number; stdFrequency?: string }
 interface MedCategory { key: string; label: string; note?: string; custom?: boolean; drugs: Drug[] }
@@ -71,7 +81,7 @@ const VESSEL_NUM: Record<string, number> = { 单支: 1, 双支: 2, 三支: 3 }
 
 const COMORB: ComorbItem[] = [
   {
-    key: 'hypertension', label: '高血压',
+    key: 'hypertension', label: '高血压', dateKey: 'hypertension_date', dateLabel: '确诊时间',
     sub: [
       { key: 'hypertension_grade', label: '分级', kind: 'select', options: ['1级', '2级', '3级', '单纯收缩期高血压'] },
       { key: 'current_sbp', label: '目前收缩压', kind: 'number', unit: 'mmHg' },
@@ -79,39 +89,39 @@ const COMORB: ComorbItem[] = [
       { key: 'bp_high', label: '规范服药下血压仍 ≥140/90', kind: 'select', options: ['否', '是'] },
     ],
   },
-  { key: 'af', label: '心房颤动' },
+  { key: 'af', label: '心房颤动', dateKey: 'af_date', dateLabel: '确诊时间' },
   {
-    key: 'hf', label: '心力衰竭',
+    key: 'hf', label: '慢性心力衰竭', dateKey: 'hf_date', dateLabel: '确诊时间',
     sub: [{ key: 'lvef', label: '患者 EF 值', kind: 'number', unit: '%', shared: true }],
   },
   {
-    key: 'diabetes', label: '糖尿病',
+    key: 'diabetes', label: '糖尿病', dateKey: 'diabetes_date', dateLabel: '确诊时间',
     sub: [
       { key: 'dm_fpg', label: '空腹血糖', kind: 'number', unit: 'mmol/L' },
       { key: 'dm_hba1c', label: '糖化血红蛋白', kind: 'number', unit: '%' },
     ],
   },
   {
-    key: 'dyslipidemia', label: '高脂血症',
+    key: 'dyslipidemia', label: '高脂血症', dateKey: 'dyslipidemia_date', dateLabel: '确诊时间',
     sub: [{
       key: 'lipid_goal', label: '当前降脂方案达标情况', kind: 'select',
       options: ['未服药', '达标', '未达标'],
     }],
   },
-  { key: 'copd', label: 'COPD' },
-  { key: 'asthma', label: '哮喘' },
+  { key: 'copd', label: 'COPD', dateKey: 'copd_date', dateLabel: '确诊时间' },
+  { key: 'asthma', label: '哮喘', dateKey: 'asthma_date', dateLabel: '确诊时间' },
   {
-    key: 'liver', label: '肝功能异常',
+    key: 'liver', label: '肝功能异常', dateKey: 'liver_date', dateLabel: '确诊时间',
     sub: [{ key: 'liver_degree', label: '程度', kind: 'select', options: ['轻度', '中度', '重度'] }],
   },
   {
-    key: 'ckd', label: '慢性肾脏病',
+    key: 'ckd', label: '慢性肾脏病', dateKey: 'ckd_date', dateLabel: '确诊时间',
     sub: [{ key: 'ckd_stage', label: '分期', kind: 'select', options: ['1期', '2期', '3期', '4期', '5期'] }],
   },
-  { key: 'prior_mi', label: '既往心肌梗死', sub: [{ key: 'prior_mi_date', label: '发生日期', kind: 'date', placeholder: '选择日期' }] },
-  { key: 'prior_stroke', label: '既往脑梗死', sub: [{ key: 'prior_stroke_date', label: '发生日期', kind: 'date', placeholder: '选择日期' }] },
-  { key: 'ich', label: '颅内出血史' },
-  { key: 'ulcer', label: '消化道溃疡 / 出血史' },
+  { key: 'prior_mi', label: '既往心肌梗死', dateKey: 'prior_mi_date', dateLabel: '发生日期' },
+  { key: 'prior_stroke', label: '既往脑梗死', dateKey: 'prior_stroke_date', dateLabel: '发生日期' },
+  { key: 'ich', label: '颅内出血史', dateKey: 'ich_date', dateLabel: '发生日期' },
+  { key: 'ulcer', label: '消化道溃疡 / 出血史', dateKey: 'ulcer_date', dateLabel: '发生日期' },
 ]
 
 const EXAM_CARDS: ExamCard[] = [
@@ -135,8 +145,6 @@ const EXAM_CARDS: ExamCard[] = [
     key: 'liver', name: '肝功能',
     fields: [
       { key: 'alt', secondKey: 'ast', label: 'ALT / AST', kind: 'pair', unit: 'U/L', placeholder: '数值' },
-      { key: 'bilirubin', label: '胆红素', kind: 'number', unit: 'μmol/L', placeholder: '数值' },
-      { key: 'albumin', label: '白蛋白', kind: 'number', unit: 'g/L', placeholder: '数值' },
     ],
   },
   {
@@ -149,10 +157,6 @@ const EXAM_CARDS: ExamCard[] = [
   {
     key: 'coag', name: '凝血功能',
     fields: [
-      { key: 'pt', label: '凝血酶原时间（PT）', kind: 'number', unit: 's', placeholder: '数值' },
-      { key: 'aptt', label: '活化部分凝血活酶时间（APTT）', kind: 'number', unit: 's', placeholder: '数值' },
-      { key: 'tt', label: '凝血酶时间（TT）', kind: 'number', unit: 's', placeholder: '数值' },
-      { key: 'fibrinogen', label: '纤维蛋白原', kind: 'number', unit: 'g/L', placeholder: '数值' },
       { key: 'inr', label: '国际标准化比值（INR）', kind: 'number', unit: '', placeholder: '数值' },
       { key: 'd_dimer', label: 'D-二聚体', kind: 'number', unit: 'mg/L', placeholder: '数值' },
     ],
@@ -176,7 +180,6 @@ const EXAM_CARDS: ExamCard[] = [
       { key: 'current_ldl', label: '本次低密度脂蛋白胆固醇（LDL-C）', kind: 'number', unit: 'mmol/L', placeholder: '本次值' },
       { key: 'tc', label: '总胆固醇（TC）', kind: 'number', unit: 'mmol/L', placeholder: '数值' },
       { key: 'tg', label: '甘油三酯（TG）', kind: 'number', unit: 'mmol/L', placeholder: '数值' },
-      { key: 'hdl', label: '高密度脂蛋白胆固醇（HDL-C）', kind: 'number', unit: 'mmol/L', placeholder: '数值' },
     ],
   },
   {
@@ -194,7 +197,8 @@ const EXAM_CARDS: ExamCard[] = [
     key: 'ecg', name: '十二导联心电图',
     fields: [
       { key: 'heart_rate', label: '心率', kind: 'number', unit: '次/分', placeholder: '数值' },
-      { key: 'arrhythmia_type', label: '心律失常', kind: 'text', placeholder: '填写心律失常类型' },
+      { key: 'arrhythmia', label: '有无心律失常', kind: 'bool', default: false },
+      { key: 'arrhythmia_type', label: '心律失常类型', kind: 'text', placeholder: '如心房颤动、室性早搏', condition: 'arrhythmia' },
       { key: 'pr_interval', label: 'PR 间期', kind: 'number', unit: 'ms', placeholder: '数值' },
       { key: 'qrs_duration', label: 'QRS 波', kind: 'number', unit: 'ms', placeholder: '数值' },
       { key: 'st_t', label: 'ST-T 改变', kind: 'bool', default: false },
@@ -421,7 +425,7 @@ function labelAbbr(label: string): string {
 
 function makeForm(): Record<string, any> {
   const f: Record<string, any> = {
-    age: null, sex: '', emergency_pci: false, surgery_date: '', post_pci_months: null,
+    patient_name: '', age: null, sex: '', emergency_pci: false, surgery_date: '', post_pci_months: null,
     diagnosis: '', vessels: '', discharge_plan: '', other_pmh: '', lvef: null,
     // OCR 依据参考范围产生的状态作为隐藏数据保留，无需重复手工选择。
     hb_low: false, plt_status: '正常', plt_drop_over_50pct: false,
@@ -436,6 +440,7 @@ function makeForm(): Record<string, any> {
     other_intolerance: false, other_intolerance_names: [''],
     temp_meds: '', adherence: [{ id: 1, drug: '', days: null } as AdherenceEntry],
     surgery_name: '', surgery_date_planned: '', referral_confirmed: false, recent_symptom: false,
+    readmission: false, readmission_date: '', readmission_reason: '',
   }
   for (const card of EXAM_CARDS) for (const field of card.fields) {
     const keys = field.kind === 'pair' ? [field.key, field.secondKey!] : [field.key]
@@ -444,6 +449,7 @@ function makeForm(): Record<string, any> {
   for (const item of COMORB) {
     f['c_' + item.key] = false
     for (const sub of item.sub ?? []) if (!sub.shared) f['c_' + sub.key] = sub.kind === 'number' ? null : ''
+    if (item.dateKey) f['c_' + item.dateKey] = ''
   }
   for (const v of VESSELS) {
     f['vessel_' + v.key] = false
@@ -476,13 +482,19 @@ const errorMsg = ref('')
 const errors = ref<string[]>([])
 const ocrVisible = ref(false)
 const ocrHint = ref('')
+const currentUser = ref<any>(null)
+const authChecked = ref(false)
 
-const DRAFT_KEY = 'pci-med-draft-v4'
-const LEGACY_DRAFT_KEY = 'pci-med-draft-v3'
+const DRAFT_PREFIX = 'pci-med-draft-v4:'
+const draftKey = computed(() => currentUser.value?.username ? `${DRAFT_PREFIX}${currentUser.value.username}` : '')
 let saveTimer: number | null = null
 let restoring = false
 
 const selectedVessels = computed(() => VESSELS.filter((v) => form['vessel_' + v.key]))
+const leftMainVessel = VESSELS.find((v) => v.key === 'left_main')!
+const branchVessels = VESSELS.filter((v) => v.key !== 'left_main')
+const branchSelected = computed(() => branchVessels.filter((v) => form['vessel_' + v.key]))
+const vesselLimit = computed(() => VESSEL_NUM[form.vessels] ?? 0)
 const selectedDrugs = computed(() => MED_CATEGORIES.flatMap((cat) => {
   if (!form.med_used[cat.key]) return []
   const regular = cat.drugs.filter((d) => form.med_sel[d.key]).map((d) => ({
@@ -529,9 +541,21 @@ function elapsedDate(value: string): string {
   return months >= 12 ? `距今 ${Math.floor(months / 12)} 年${months % 12 ? ` ${months % 12} 个月` : ''}` : `距今 ${Math.max(0, months)} 个月`
 }
 
+function visibleExamFields(card: ExamCard): ExamField[] {
+  return card.fields.filter((field) => !field.condition || Boolean(form[field.condition]))
+}
+
 function interventionTotal(key: string): number {
   const x = form['iv_' + key] ?? {}
   return (x.dcb || 0) + (x.brs || 0) + (x.des || 0)
+}
+
+function onVesselToggle(v: { key: string; label: string }): void {
+  if (v.key === 'left_main' || !form['vessel_' + v.key] || !form.vessels) return
+  if (branchSelected.value.length > vesselLimit.value) {
+    form['vessel_' + v.key] = false
+    ElMessage.warning(`病变支数为${form.vessels}，最多勾选 ${vesselLimit.value} 条 LAD/LCX/RCA；左主干单独列出，不占支数。`)
+  }
 }
 
 function hasValue(v: any): boolean {
@@ -551,7 +575,7 @@ function filledCount(step: number): number {
     let n = 0
     for (const key of ['age', 'sex', 'surgery_date', 'diagnosis', 'vessels']) if (hasValue(form[key])) n++
     for (const v of VESSELS) if (form['vessel_' + v.key]) n++
-    for (const key of ['emergency_pci', 'discharge_plan']) if (hasValue(form[key])) n++
+    for (const key of ['patient_name', 'emergency_pci', 'discharge_plan']) if (hasValue(form[key])) n++
     return n
   }
   if (step === 1) {
@@ -560,8 +584,10 @@ function filledCount(step: number): number {
       if (!form['c_' + item.key]) continue
       n++
       for (const sub of item.sub ?? []) if (hasValue(sub.shared ? form[sub.key] : form['c_' + sub.key])) n++
+      if (item.dateKey && hasValue(form['c_' + item.dateKey])) n++
     }
     if (hasValue(form.other_pmh)) n++
+    if (form.readmission) n++
     return n
   }
   if (step === 2) {
@@ -613,13 +639,18 @@ function validateStep(step: number): boolean {
     if (!form.diagnosis) e.push('出院诊断为核心必填')
     if (!form.vessels) e.push('病变支数为核心必填')
     if (!selectedVessels.value.length) e.push('请至少选择一条干预血管')
-    else if (selectedVessels.value.length > (VESSEL_NUM[form.vessels] || 0)) e.push('干预血管数量不能超过所选病变支数')
+    else if (form.vessels && branchSelected.value.length > vesselLimit.value) {
+      e.push(`病变支数为${form.vessels}，LAD/LCX/RCA 最多勾选 ${vesselLimit.value} 条；左主干单独列出，不占支数`)
+    }
     for (const v of selectedVessels.value) {
       if (interventionTotal(v.key) <= 0) e.push(`「${v.label}」请填写干预方式（药物洗脱支架 / 药物球囊 / 可吸收支架，至少一项 > 0）`)
     }
   }
   if (step === 1) {
     if (form.c_hypertension && !form.c_hypertension_grade) e.push('已勾选高血压，请选择高血压分级（条件必填）')
+    if (form.readmission && (!form.readmission_date || !form.readmission_reason)) {
+      e.push('已勾选 PCI 术后再住院，请填写住院时间和住院原因')
+    }
   }
   if (step === 3) {
     for (const cat of MED_CATEGORIES) for (const drug of form.med_custom[cat.key] || []) {
@@ -709,6 +740,7 @@ function applyOcr(payload: { patch: Record<string, any>; labels: string[] }): vo
     form.ldl = patch.baseline_ldl
     delete patch.baseline_ldl
   }
+  if (patch.arrhythmia_type) form.arrhythmia = true
   Object.assign(form, patch)
   const shown = payload.labels.slice(0, 6).join('、')
   const more = payload.labels.length > 6 ? ` 等 ${payload.labels.length} 项` : ''
@@ -724,6 +756,7 @@ function buildPayload(): Record<string, any> {
 
   setIf('age', form.age)
   setIf('sex', form.sex)
+  setIf('patient_name', form.patient_name)
   if (form.emergency_pci) p.emergency_pci = true
   setIf('surgery_date', form.surgery_date)
   setIf('post_pci_months', form.post_pci_months)
@@ -790,6 +823,14 @@ function buildPayload(): Record<string, any> {
   if (form.c_ulcer) p.ulcer_bleed_history = true
   if (form.c_ich) p.ich_history = true
   setIf('other_pmh', form.other_pmh)
+  for (const item of COMORB) {
+    if (item.dateKey && form['c_' + item.key]) setIf('c_' + item.dateKey, form['c_' + item.dateKey])
+  }
+  if (form.readmission) {
+    p.readmission = true
+    setIf('readmission_date', form.readmission_date)
+    setIf('readmission_reason', form.readmission_reason)
+  }
   if (form.c_liver) {
     p.c_liver = true
     setIf('liver_degree', form.c_liver_degree)
@@ -801,12 +842,15 @@ function buildPayload(): Record<string, any> {
   p.plt_status = form.plt_status === '降低' ? '降低' : '正常'
   if (form.plt_drop_over_50pct) p.plt_drop_over_50pct = true
   p.brown_urine = !!form.brown_urine
-  p.jaundice = !!form.jaundice
-  if (form.alt_ast_status !== '正常') p.alt_ast_status = form.alt_ast_status
+  if (form.alt_ast_status !== '正常') {
+    p.alt_ast_status = form.alt_ast_status
+  } else if (form.alt !== null || form.ast !== null) {
+    const maxLiver = Math.max(Number(form.alt) || 0, Number(form.ast) || 0)
+    p.alt_ast_status = maxLiver > 120 ? '重度升高' : maxLiver > 40 ? '轻度升高' : '正常'
+  }
   setIf('scr', form.scr)
   setIf('egfr', form.egfr)
   setIf('crcl', form.crcl)
-  p.coag_abnormal = !!form.coag_abnormal
   p.ck_status = form.ck_status
   p.troponin_elevated = !!form.troponin_elevated
   p.potassium_status = form.potassium_status
@@ -834,7 +878,6 @@ function buildPayload(): Record<string, any> {
   setIf('potassium', form.potassium)
   setIf('sodium', form.sodium)
   setIf('inr', form.inr)
-  setIf('fibrinogen', form.fibrinogen)
   setIf('hs_ctnt', form.hs_ctnt)
   setIf('co2cp', form.co2cp)
   setIf('baseline_scr', form.baseline_scr)
@@ -842,11 +885,13 @@ function buildPayload(): Record<string, any> {
   setIf('fpg', form.fpg ?? form.c_dm_fpg)
   setIf('tc', form.tc)
   setIf('tg', form.tg)
-  setIf('hdl', form.hdl)
   if (form.lipid_abnormal) p.lipid_abnormal = form.lipid_abnormal
   p.urine_protein = !!form.urine_protein
   p.st_t = !!form.st_t
-  p.arrhythmia = !!form.arrhythmia
+  if (form.arrhythmia) {
+    p.arrhythmia = true
+    setIf('arrhythmia_type', form.arrhythmia_type)
+  }
   p.hr_abnormal = !!form.hr_abnormal
   p.qtc_prolonged = !!form.qtc_prolonged
   p.wall_aneurysm = !!form.wall_aneurysm
@@ -854,7 +899,6 @@ function buildPayload(): Record<string, any> {
   if (form.echo_other) p.echo_other = form.echo_other
   for (const key of ['wbc', 'bilirubin', 'albumin', 'pt', 'aptt', 'tt', 'd_dimer', 'ck_mb',
     'pr_interval', 'qrs_duration']) setIf(key, form[key])
-  setIf('arrhythmia_type', form.arrhythmia_type)
   p.troponin_reference_known = !!form.troponin_reference_known
 
   const ap = ['aspirin', 'clopidogrel', 'ticagrelor', 'indobufen']
@@ -1000,8 +1044,9 @@ async function submit(): Promise<void> {
 }
 
 function saveDraft(): void {
+  if (!draftKey.value) return
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: 4, form, step: currentStep.value, savedAt: Date.now() }))
+    localStorage.setItem(draftKey.value, JSON.stringify({ version: 4, form, step: currentStep.value, savedAt: Date.now() }))
   } catch { /* ignore quota */ }
 }
 
@@ -1012,11 +1057,12 @@ function resetForm(): void {
 }
 
 function loadDraft(): void {
-  const raw = localStorage.getItem(DRAFT_KEY) || localStorage.getItem(LEGACY_DRAFT_KEY)
+  if (!draftKey.value) return
+  const raw = localStorage.getItem(draftKey.value)
   if (!raw) return
   try {
     const draft = JSON.parse(raw)
-    if (![3, 4].includes(draft.version) || !draft.form) return
+    if (draft.version !== 4 || !draft.form) return
     restoring = true
     const saved = draft.form
     resetForm()
@@ -1032,15 +1078,14 @@ function loadDraft(): void {
     form.other_intolerance_names = Array.isArray(saved.other_intolerance_names) && saved.other_intolerance_names.length ? saved.other_intolerance_names : ['']
     currentStep.value = Math.min(4, Number(draft.step) || 0)
     restoring = false
-    ElMessage.info(draft.version === 3 ? '已恢复旧版草稿，并补齐新版字段' : '已为您恢复上次填写内容')
+    ElMessage.info('已为您恢复上次填写内容')
   } catch {
     restoring = false
   }
 }
 
 function clearDraft(): void {
-  localStorage.removeItem(DRAFT_KEY)
-  localStorage.removeItem(LEGACY_DRAFT_KEY)
+  if (draftKey.value) localStorage.removeItem(draftKey.value)
 }
 
 async function saveAndExit(): Promise<void> {
@@ -1085,14 +1130,52 @@ function exportPdf(): void {
   window.print()
 }
 
+async function checkAuth(): Promise<void> {
+  try {
+    const resp = await fetch('/api/auth/me', { credentials: 'same-origin' })
+    if (resp.ok) {
+      const data = await resp.json()
+      currentUser.value = data.user || null
+    }
+  } catch {
+    currentUser.value = null
+  }
+}
+
+async function onAuthenticated(user: any): Promise<void> {
+  currentUser.value = user
+  authChecked.value = true
+  resetForm()
+  currentStep.value = 0
+  screen.value = 'form'
+  view.value = 'form'
+  result.value = null
+  loadDraft()
+}
+
+async function logout(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+  } catch { /* ignore */ }
+  currentUser.value = null
+  result.value = null
+  screen.value = 'form'
+  view.value = 'form'
+  currentStep.value = 0
+  resetForm()
+  ElMessage.success('已退出登录')
+}
+
 watch(form, () => {
   if (restoring) return
   if (saveTimer !== null) window.clearTimeout(saveTimer)
   saveTimer = window.setTimeout(saveDraft, 500)
 }, { deep: true })
 
-onMounted(() => {
-  loadDraft()
+onMounted(async () => {
+  await checkAuth()
+  authChecked.value = true
+  if (currentUser.value) loadDraft()
   const step = Number(new URLSearchParams(window.location.search).get('step'))
   if (Number.isInteger(step) && step >= 1 && step <= 5) currentStep.value = step - 1
 })
@@ -1106,10 +1189,18 @@ onMounted(() => {
         <h1>PCI 术后用药管理助手</h1>
         <p>基于分级诊疗指南的规则引擎 · 零自由发挥 · 每一条建议可溯源</p>
       </div>
-      <span class="brand-tag">基层辅助决策</span>
+      <span class="brand-tag">专为基层医生使用</span>
+      <div v-if="currentUser" class="brand-user">
+        <span>{{ currentUser.display_name || currentUser.username }}</span>
+        <el-button text size="small" @click="logout">退出</el-button>
+      </div>
     </header>
 
-    <div class="view-tabs">
+    <div v-if="!authChecked" class="auth-loading">正在验证登录状态…</div>
+    <LoginView v-else-if="!currentUser" @authenticated="onAuthenticated" />
+
+    <template v-else>
+      <div class="view-tabs">
       <button :class="['view-tab', { on: view === 'form' }]" @click="view = 'form'">智能用药方案</button>
       <button :class="['view-tab', { on: view === 'chat' }]" @click="view = 'chat'">AI 用药问答</button>
     </div>
@@ -1139,6 +1230,9 @@ onMounted(() => {
           <!-- ================= 第 1 步：基本信息 ================= -->
           <template v-if="currentStep === 0">
             <el-form label-width="190px" label-position="left" class="form">
+              <el-form-item label="患者姓名">
+                <el-input v-model="form.patient_name" placeholder="用于报告抬头；可留空" class="ctrl-text" />
+              </el-form-item>
               <el-form-item>
                 <template #label><span class="field-label"><span class="req">*</span>年龄</span></template>
                 <div class="field-wrap">
@@ -1198,7 +1292,9 @@ onMounted(() => {
                 <div class="vessel-block">
                   <p class="field-note">勾选干预血管后，填写每条血管的球囊 / 支架数量；填 0 表示未使用。至少一条血管需要填写干预方式。</p>
                   <div v-for="v in VESSELS" :key="v.key" class="vessel-row">
-                    <el-checkbox v-model="form['vessel_' + v.key]" class="vessel-check">{{ v.label }}</el-checkbox>
+                    <p v-if="v.key === 'left_main'" class="vessel-group-label">左主干（单独列出，不纳入单/双/三支计数）</p>
+                    <p v-if="v.key === 'lad'" class="vessel-group-label">LAD / LCX / RCA（最多 {{ vesselLimit || '—' }} 条）</p>
+                    <el-checkbox v-model="form['vessel_' + v.key]" class="vessel-check" @change="onVesselToggle(v)">{{ v.label }}</el-checkbox>
                     <div v-if="form['vessel_' + v.key]" class="vessel-inputs">
                       <span class="vessel-input-label">药物洗脱支架（枚）</span>
                       <el-input-number v-model="form['iv_' + v.key].des" :min="0" :max="20" controls-position="right" class="ctrl-xs" />
@@ -1209,6 +1305,9 @@ onMounted(() => {
                     </div>
                     <p v-if="v.key === 'left_main' && form.vessel_left_main" class="field-note danger-note">左主干病变纳入高缺血风险</p>
                   </div>
+                  <p v-if="form.vessels && branchSelected.length > vesselLimit" class="field-note danger-note">
+                    已勾选 {{ branchSelected.length }} 条 LAD/LCX/RCA，超过「{{ form.vessels }}」上限 {{ vesselLimit }} 条，请取消多余的血管。
+                  </p>
                 </div>
               </el-form-item>
             </el-form>
@@ -1237,8 +1336,8 @@ onMounted(() => {
                   <span class="comorb-label" :title="termTip(item.label)">{{ item.label }}</span>
                   <span v-if="item.hint" class="comorb-hint">{{ item.hint }}</span>
                 </div>
-                <div v-if="form['c_' + item.key] && item.sub" class="comorb-sub">
-                  <div v-for="sub in item.sub" :key="sub.key" class="comorb-sub-row">
+                <div v-if="form['c_' + item.key] && (item.sub || item.dateKey)" class="comorb-sub">
+                  <div v-for="sub in item.sub ?? []" :key="sub.key" class="comorb-sub-row">
                     <span class="comorb-sub-label">{{ sub.label }}</span>
                     <el-select v-if="sub.kind === 'select'" v-model="form['c_' + sub.key]" placeholder="请选择" class="ctrl-sm">
                       <el-option v-for="op in sub.options" :key="op" :label="op" :value="op" />
@@ -1253,6 +1352,29 @@ onMounted(() => {
                       <span class="date-elapsed">{{ elapsedDate(form['c_' + sub.key]) }}</span>
                     </template>
                     <el-input v-else v-model="form['c_' + sub.key]" :placeholder="sub.placeholder || '选填'" class="ctrl-text" />
+                  </div>
+                  <div v-if="item.dateKey" class="comorb-sub-row">
+                    <span class="comorb-sub-label">{{ item.dateLabel || '确诊时间' }}</span>
+                    <el-date-picker v-model="form['c_' + item.dateKey]" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" class="ctrl" />
+                    <span class="date-elapsed">{{ elapsedDate(form['c_' + item.dateKey]) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="comorb-item">
+                <div class="comorb-head">
+                  <el-switch v-model="form.readmission" />
+                  <span class="comorb-label">PCI 术后是否再住院</span>
+                </div>
+                <div v-if="form.readmission" class="comorb-sub">
+                  <div class="comorb-sub-row">
+                    <span class="comorb-sub-label">住院时间</span>
+                    <el-date-picker v-model="form.readmission_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" class="ctrl" />
+                    <span class="date-elapsed">{{ elapsedDate(form.readmission_date) }}</span>
+                  </div>
+                  <div class="comorb-sub-row">
+                    <span class="comorb-sub-label">住院原因</span>
+                    <el-input v-model="form.readmission_reason" placeholder="如再发胸痛、心衰加重、消化道出血" class="ctrl-text" />
                   </div>
                 </div>
               </div>
@@ -1294,7 +1416,7 @@ onMounted(() => {
                   </el-button>
                 </div>
                 <div class="exam-body">
-                  <div v-for="f in card.fields" :key="f.key" class="exam-field">
+                  <div v-for="f in visibleExamFields(card)" :key="f.key" class="exam-field">
                     <span class="exam-label" :title="termTip(f.label)">
                       {{ labelMain(f.label) }}<span v-if="labelAbbr(f.label)" class="abbr">{{ labelAbbr(f.label) }}</span>
                     </span>
@@ -1506,17 +1628,24 @@ onMounted(() => {
         </el-card>
 
         <el-card v-else-if="result" class="panel result-panel" shadow="never">
-          <AnalysisReport v-if="result.report" :report="result.report" />
+          <div v-if="result.report" class="concise-wrap">
+            <ConciseReport :report="result.report" :patient="form" />
+            <el-collapse class="detailed-report-collapse">
+              <el-collapse-item title="详细报告（补充：仅列出异常、待办与依据）" name="detailed">
+                <AnalysisReport :report="result.report" />
+              </el-collapse-item>
+            </el-collapse>
+          </div>
           <el-alert v-else title="后端未返回结构化报告，请重启后端后重新分析。" type="error" show-icon :closable="false" />
 
           <div class="result-actions">
-            <el-button @click="printResult"><el-icon class="btn-icon"><Printer /></el-icon>打印</el-button>
-            <el-button @click="exportPdf"><el-icon class="btn-icon"><Download /></el-icon>导出 PDF</el-button>
+            <el-button @click="printResult"><el-icon class="btn-icon"><Printer /></el-icon>打印 / 导出精简报告</el-button>
             <el-button @click="screen = 'review'">返回核对页</el-button>
             <el-button type="primary" @click="reset"><el-icon class="btn-icon"><RefreshLeft /></el-icon>重新填写</el-button>
           </div>
         </el-card>
       </template>
+    </template>
     </template>
 
     <OcrDialog v-model="ocrVisible" :card-hint="ocrHint" :current="ocrCurrent" @apply="applyOcr" />

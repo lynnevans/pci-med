@@ -5,6 +5,7 @@ PCI 术后用药管理 —— 化验单 OCR（qwen3-vl-plus 视觉识别）
 不做任何医学判断或字段映射（映射后续用确定性字典完成，不进 LLM）。
 """
 import json
+import os
 from pathlib import Path
 
 from openai import OpenAI
@@ -31,7 +32,7 @@ def _load_env():
 
 
 ENV = _load_env()
-API_KEY = ENV.get("DASHSCOPE_API_KEY", "")
+API_KEY = ENV.get("DASHSCOPE_API_KEY") or os.getenv("DASHSCOPE_API_KEY") or "not-configured"
 
 _ocr_llm = OpenAI(api_key=API_KEY, base_url=BASE_URL, timeout=120.0)
 

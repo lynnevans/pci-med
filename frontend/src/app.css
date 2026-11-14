@@ -442,3 +442,14 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
   .custom-med-row .ctrl-text, .adherence-row .ctrl-text { width: 100%; }
 }
 
+
+.vessel-group-label { margin: 10px 0 2px; padding: 6px 10px; background: #f1f5f9; border-radius: 6px; color: var(--text-2); font-size: 12.5px; font-weight: 600; }
+
+.concise-wrap { width: 100%; }
+.detailed-report-collapse { margin-top: 18px; border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; background: #fff; }
+@media print {
+  .detailed-report-collapse { display: none !important; }
+  .concise-wrap { overflow: visible !important; }
+}
+.brand-user { display: flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 12.5px; color: var(--text-3); flex-shrink: 0; }
+.auth-loading { text-align: center; padding: 80px 0; color: var(--text-3); }

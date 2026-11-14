@@ -13,9 +13,9 @@ PCI 术后用药管理 —— FastAPI 接口
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from rule_engine import match
@@ -24,8 +24,102 @@ from patient_normalize import normalize_patient
 from rag import stream_answer, clean_src
 from ocr import ocr_from_base64
 from ocr_map import map_items
+from auth import (
+    DB_PATH,
+    SESSION_DAYS,
+    create_session,
+    delete_session,
+    get_session_user,
+    init_db,
+    login as auth_login,
+    register as auth_register,
+)
 
-app = FastAPI(title="PCI 术后用药管理助手", version="0.4")
+app = FastAPI(title="PCI 术后用药管理助手（专为基层医生使用）", version="0.5")
+init_db()
+
+COOKIE_NAME = "pci_session"
+PUBLIC_API_PATHS = {
+    "/api/health",
+    "/api/auth/register",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/auth/me",
+}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """除健康检查与登录注册外，所有 /api/* 均需医生登录。"""
+    path = request.url.path
+    if (
+        path.startswith("/api/")
+        and path not in PUBLIC_API_PATHS
+        and request.method != "OPTIONS"
+    ):
+        user = get_session_user(request.cookies.get(COOKIE_NAME))
+        if not user:
+            return JSONResponse({"error": "未登录或登录已过期，请先登录"}, status_code=401)
+        request.state.user = user
+    return await call_next(request)
+
+
+def _set_login_cookie(response: JSONResponse, token: str, request: Request) -> None:
+    forwarded = request.headers.get("x-forwarded-proto", "").lower()
+    secure = request.url.scheme == "https" or forwarded == "https"
+    response.set_cookie(
+        COOKIE_NAME,
+        token,
+        max_age=SESSION_DAYS * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+
+
+@app.post("/api/auth/register")
+def register(request: Request, payload: dict = Body(...)):
+    try:
+        user = auth_register(
+            payload.get("username", ""),
+            payload.get("password", ""),
+            payload.get("display_name", ""),
+        )
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    token = create_session(user["id"])
+    response = JSONResponse({"user": user})
+    _set_login_cookie(response, token, request)
+    return response
+
+
+@app.post("/api/auth/login")
+def login(request: Request, payload: dict = Body(...)):
+    user = auth_login(payload.get("username", ""), payload.get("password", ""))
+    if not user:
+        return JSONResponse({"error": "用户名或密码错误"}, status_code=401)
+    token = create_session(user["id"])
+    response = JSONResponse({"user": user})
+    _set_login_cookie(response, token, request)
+    return response
+
+
+@app.get("/api/auth/me")
+def me(request: Request):
+    user = get_session_user(request.cookies.get(COOKIE_NAME))
+    if not user:
+        return JSONResponse({"error": "未登录"}, status_code=401)
+    return {"user": user}
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request):
+    delete_session(request.cookies.get(COOKIE_NAME))
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return response
+
 
 DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 

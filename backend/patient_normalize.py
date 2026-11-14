@@ -99,6 +99,9 @@ def _derive_exam_states(p: dict[str, Any]) -> None:
         p["potassium_status"] = "低" if p["potassium"] < 3.5 else "高" if p["potassium"] > 5.5 else "正常"
     if _number(p.get("fpg")):
         p["fbg_status"] = "低" if p["fpg"] < 3.9 else "高" if p["fpg"] >= 6.1 else "正常"
+    if p.get("alt_ast_status") in (None, "", "正常") and (_number(p.get("alt")) or _number(p.get("ast"))):
+        max_liver = max(p.get("alt") if _number(p.get("alt")) else 0, p.get("ast") if _number(p.get("ast")) else 0)
+        p["alt_ast_status"] = "重度升高" if max_liver > 120 else "轻度升高" if max_liver > 40 else "正常"
 
     abnormal: list[str] = []
     if _number(p.get("tc")) and p["tc"] > 5.2:
