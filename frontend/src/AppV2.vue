@@ -1188,10 +1188,9 @@ onMounted(async () => {
     <header class="brand">
       <div class="brand-icon"><el-icon :size="30"><FirstAidKit /></el-icon></div>
       <div class="brand-text">
-        <h1>PCI 术后用药管理助手</h1>
+        <h1>PCI 术后用药管理助手<span class="brand-title-tag">专为基层医生使用</span></h1>
         <p>基于分级诊疗指南的规则引擎 · 零自由发挥 · 每一条建议可溯源</p>
       </div>
-      <span class="brand-tag">专为基层医生使用</span>
       <div v-if="currentUser" class="brand-user">
         <span>{{ currentUser.display_name || currentUser.username }}</span>
         <el-button text size="small" @click="logout">退出</el-button>

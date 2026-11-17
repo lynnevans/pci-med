@@ -28,8 +28,18 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
   color: #fff; display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 12px rgba(3, 105, 161, 0.25);
 }
-.brand-text h1 { margin: 0 0 6px; font-size: 24px; color: var(--text); letter-spacing: 0.5px; }
+.brand-text h1 {
+  margin: 0 0 6px; font-size: 24px; line-height: 1.25; color: var(--text); letter-spacing: 0.5px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+}
 .brand-text p { margin: 0; color: var(--text-2); font-size: 13.5px; }
+.brand-title-tag {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  font-size: 15px; font-weight: 500; line-height: 1.2; letter-spacing: 0.2px;
+  color: var(--primary); background: rgba(3, 105, 161, 0.08);
+  border: 1px solid rgba(3, 105, 161, 0.2); border-radius: 20px;
+  padding: 3px 10px;
+}
 .brand-tag {
   margin-left: auto; flex-shrink: 0; font-size: 12px; padding: 5px 12px; border-radius: 20px;
   background: rgba(3, 105, 161, 0.08); color: var(--primary); border: 1px solid rgba(3, 105, 161, 0.2);
@@ -161,6 +171,7 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
 
 @media (max-width: 640px) {
   .brand-tag { display: none; }
+  .brand-title-tag { font-size: 12.5px; padding: 2px 8px; gap: 8px; }
   .form .el-form-item__label { width: 100% !important; text-align: left; }
   .ctrl, .ctrl-text { width: 100%; }
   .exam-grid { grid-template-columns: 1fr; }
@@ -451,7 +462,7 @@ body { margin: 0; background: var(--bg); font-family: -apple-system, "PingFang S
   .detailed-report-collapse { display: none !important; }
   .concise-wrap { overflow: visible !important; }
 }
-.brand-user { display: flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 12.5px; color: var(--text-3); flex-shrink: 0; }
+.brand-user { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12.5px; color: var(--text-3); flex-shrink: 0; }
 .auth-loading { text-align: center; padding: 80px 0; color: var(--text-3); }
 .review-actions { flex-wrap: wrap; }
 .detailed-report { width: 100%; }
