@@ -478,6 +478,7 @@ const screen = ref<'form' | 'review' | 'result'>('form')
 const view = ref<'form' | 'chat'>('form')
 const loading = ref(false)
 const result = ref<AnalyzeResult | null>(null)
+const reportMode = ref<'concise' | 'detailed'>('concise')
 const errorMsg = ref('')
 const errors = ref<string[]>([])
 const ocrVisible = ref(false)
@@ -1019,7 +1020,8 @@ function buildPayload(): Record<string, any> {
   return p
 }
 
-async function submit(): Promise<void> {
+async function submit(mode: 'concise' | 'detailed' = 'concise'): Promise<void> {
+  reportMode.value = mode
   if (!validateAll()) return
   loading.value = true
   errorMsg.value = ''
@@ -1591,7 +1593,7 @@ onMounted(async () => {
         <el-card class="panel review-panel" shadow="never">
           <div class="result-head">
             <h2>提交核对</h2>
-            <span class="review-note">确认后系统将依据分级诊疗指南生成用药分析与建议</span>
+            <span class="review-note">可选择输出精简版报告，或输出完整详细版报告</span>
           </div>
           <div class="review-grid">
             <div v-for="g in summaryGroups" :key="g.step" class="review-item">
@@ -1611,10 +1613,13 @@ onMounted(async () => {
             class="review-tip"
             title="请核对以上信息，确认无误后开始分析；如有错误请点对应分组的「修改」。"
           />
-          <div class="nav">
+          <div class="nav review-actions">
             <el-button size="large" @click="editStep(4)">返回修改</el-button>
-            <el-button type="primary" size="large" :loading="loading" @click="submit">
-              <el-icon class="btn-icon"><Document /></el-icon>确认无误，开始分析
+            <el-button size="large" type="primary" plain :loading="loading" @click="submit('concise')">
+              <el-icon class="btn-icon"><Document /></el-icon>输出精简版报告
+            </el-button>
+            <el-button size="large" type="primary" :loading="loading" @click="submit('detailed')">
+              <el-icon class="btn-icon"><Document /></el-icon>输出详细版报告
             </el-button>
           </div>
         </el-card>
@@ -1628,18 +1633,20 @@ onMounted(async () => {
         </el-card>
 
         <el-card v-else-if="result" class="panel result-panel" shadow="never">
-          <div v-if="result.report" class="concise-wrap">
-            <ConciseReport :report="result.report" :patient="form" />
-            <el-collapse class="detailed-report-collapse">
-              <el-collapse-item title="详细报告（补充：仅列出异常、待办与依据）" name="detailed">
-                <AnalysisReport :report="result.report" />
-              </el-collapse-item>
-            </el-collapse>
+          <div v-if="result.report">
+            <ConciseReport v-if="reportMode === 'concise'" :report="result.report" :patient="form" />
+            <div v-else class="detailed-report">
+              <AnalysisReport :report="result.report" />
+            </div>
           </div>
           <el-alert v-else title="后端未返回结构化报告，请重启后端后重新分析。" type="error" show-icon :closable="false" />
 
           <div class="result-actions">
-            <el-button @click="printResult"><el-icon class="btn-icon"><Printer /></el-icon>打印 / 导出精简报告</el-button>
+            <el-button v-if="reportMode === 'concise'" @click="reportMode = 'detailed'">查看详细版</el-button>
+            <el-button v-else @click="reportMode = 'concise'">查看精简版</el-button>
+            <el-button @click="printResult">
+              <el-icon class="btn-icon"><Printer /></el-icon>打印 / 导出{{ reportMode === 'concise' ? '精简版' : '详细版' }}报告
+            </el-button>
             <el-button @click="screen = 'review'">返回核对页</el-button>
             <el-button type="primary" @click="reset"><el-icon class="btn-icon"><RefreshLeft /></el-icon>重新填写</el-button>
           </div>

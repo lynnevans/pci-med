@@ -65,7 +65,7 @@ const props = defineProps<{ report: ReportData }>()
   <div class="analysis-report">
     <div class="result-head">
       <div>
-        <p class="report-kicker">详细报告（补充） · 仅列出异常与待办</p>
+        <p class="report-kicker">详细版报告 · 仅列出异常、待办与依据</p>
         <h2>异常、待办与依据明细</h2>
       </div>
     </div>

@@ -9,6 +9,14 @@ if not exist "venv\Scripts\python.exe" (
   exit /b 1
 )
 
+venv\Scripts\python.exe -c "import fastapi, uvicorn" >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] backend\venv exists, but dependencies are not installed.
+  echo Run scripts\setup_backend.bat and wait until it finishes.
+  pause
+  exit /b 1
+)
+
 echo ============================================================
 echo  PCI-MED local server
 echo  Open http://127.0.0.1:8000/ after startup
